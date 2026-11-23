@@ -1346,6 +1346,15 @@ void GLRenderer3D::RenderFrame()
         EffectiveStereoSeparation = separation;
         StereoDirty = true;
     }
+    int views = GLRenderer::StereoView_Center;
+    if (Stereo)
+        views = glCopyImageSubData ? Parent.StereoViews()
+                                   : (GLRenderer::StereoView_Center | GLRenderer::StereoView_Eyes);
+    if (views != LastStereoViews)
+    {
+        LastStereoViews = views;
+        StereoDirty = true;
+    }
     u8 clrBitmapDirty;
     if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical && !StereoDirty)
     {
@@ -1399,8 +1408,27 @@ void GLRenderer3D::RenderFrame()
 
     TexEnable = !!(GPU3D.RenderDispCnt & (1<<0));
 
-    for (int eye = 0; eye < (Stereo ? 3 : 1); eye++)
-        RenderFrameEye(captureinfo, eye);
+    if (views & GLRenderer::StereoView_Center)
+        RenderFrameEye(captureinfo, 0);
+    if (views & GLRenderer::StereoView_Eyes)
+    {
+        RenderFrameEye(captureinfo, 1);
+        RenderFrameEye(captureinfo, 2);
+    }
+
+    // Keep skipped views holding a recent image so the first frame after a
+    // screen swap or display capture never shows stale/garbage output.
+    if (!(views & GLRenderer::StereoView_Center))
+        glCopyImageSubData(StereoColorBufferTex[0], GL_TEXTURE_2D, 0, 0, 0, 0,
+                           ColorBufferTex, GL_TEXTURE_2D, 0, 0, 0, 0,
+                           ScreenW, ScreenH, 1);
+    else if (Stereo && !(views & GLRenderer::StereoView_Eyes))
+    {
+        for (GLuint eyeTex : StereoColorBufferTex)
+            glCopyImageSubData(ColorBufferTex, GL_TEXTURE_2D, 0, 0, 0, 0,
+                               eyeTex, GL_TEXTURE_2D, 0, 0, 0, 0,
+                               ScreenW, ScreenH, 1);
+    }
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
     glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ColorBufferTex, 0);

@@ -79,8 +79,10 @@ and display captures remain flat, and geometry clipped by the original DS view c
 missing at the edges, especially with larger separation. Stereo layouts override rotation
 and screen swapping. Without the top-screen option, a display that splits the whole
 picture will also split the single top screen unless it is shown in a separate window.
-Stereo renders three 3D passes and
-can be substantially slower, particularly at high internal resolutions. Enabling
+Stereo renders only the 3D views that are on screen: two eye passes while the 3D
+engine is on a stereo screen, or one normal pass when it is on the other screen. Games
+that use display capture, or that just swapped screens, briefly render all three passes,
+which can be substantially slower, particularly at high internal resolutions. Enabling
 the top pair also uses additional graphics memory.
 
 With OpenGL (Compute shader), Video settings also offers an optional Android-style

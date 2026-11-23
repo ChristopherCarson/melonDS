@@ -1792,8 +1792,10 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 
 void GLRenderer2D::RenderScreen(int ystart, int yend)
 {
-    RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D);
-    if (Stereo)
+    int views = Stereo ? Parent.StereoViews() : GLRenderer::StereoView_Center;
+    if (views & GLRenderer::StereoView_Center)
+        RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D);
+    if (views & GLRenderer::StereoView_Eyes)
     {
         for (int eye = 0; eye < 2; eye++)
             RenderScreenOutput(ystart, yend, StereoOutputFB[eye], Parent.StereoTex3D[eye]);

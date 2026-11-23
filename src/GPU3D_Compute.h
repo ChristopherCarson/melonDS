@@ -225,6 +225,7 @@ private:
     bool HiresCoordinates {};
     bool Stereo {};
     bool StereoDirty = true;
+    int LastStereoViews = 0;
     int StereoSeparation = 16;
     bool StereoAdaptive = false;
     int StereoAdaptiveTarget = 24;

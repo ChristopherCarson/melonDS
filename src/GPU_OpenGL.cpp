@@ -297,6 +297,9 @@ void GLRenderer::Reset()
     LastCapLine = 0;
     Aux0VRAMCap = -1;
 
+    StereoHoldFrames = StereoHoldDuration;
+    LastScreenSwap = GPU.ScreenSwap;
+
     Rend2D_A->Reset();
     Rend2D_B->Reset();
     Rend3D->Reset();
@@ -327,6 +330,7 @@ void GLRenderer::SetRenderSettings(RendererSettings& settings)
     bool scaleChanged = ScaleFactor != settings.ScaleFactor;
     Stereo = stereo;
     StereoTop = stereoTop;
+    StereoHoldFrames = StereoHoldDuration;
     SetScaleFactor(settings.ScaleFactor);
     if (stereoChanged && !scaleChanged)
         AllocateOutputBuffers();
@@ -417,8 +421,26 @@ void GLRenderer::AllocateOutputBuffers()
 }
 
 
+int GLRenderer::StereoViews() const
+{
+    if (!Stereo && !StereoTop)
+        return StereoView_Center;
+    if (StereoHoldFrames > 0)
+        return StereoView_Center | StereoView_Eyes;
+
+    // the main engine (with 3D) is on the top screen when ScreenSwap is set
+    bool mainOnStereoScreen = GPU.ScreenSwap ? StereoTop : Stereo;
+    return mainOnStereoScreen ? StereoView_Eyes : StereoView_Center;
+}
+
 void GLRenderer::DrawScanline(u32 line)
 {
+    // Display capture reads the center view, and screen swaps move the main
+    // engine between screens: render every view for a while around those.
+    if (GPU.CaptureEnable || GPU.ScreenSwap != LastScreenSwap)
+        StereoHoldFrames = StereoHoldDuration;
+    LastScreenSwap = GPU.ScreenSwap;
+
     u32 dispcnt_a_diff = DispCntA ^ GPU.GPU2D_A.DispCnt;
     u32 dispcnt_b_diff = DispCntB ^ GPU.GPU2D_B.DispCnt;
     u32 capturecnt_diff = CaptureCnt ^ GPU.CaptureCnt;
@@ -692,6 +714,9 @@ void GLRenderer::VBlank()
 
     LastLine = 0;
     LastCapLine = 0;
+
+    if (StereoHoldFrames > 0)
+        StereoHoldFrames--;
 }
 
 void GLRenderer::VBlankEnd()

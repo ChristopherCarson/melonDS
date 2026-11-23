@@ -75,6 +75,18 @@ private:
     bool Stereo {};
     bool StereoTop {};
 
+    // Views of the main (3D) engine that are actually displayed or captured.
+    // Skipping the others avoids rendering 3D/2D output nobody will see.
+    enum
+    {
+        StereoView_Center = 1 << 0,
+        StereoView_Eyes = 1 << 1,
+    };
+    static constexpr int StereoHoldDuration = 60;
+    int StereoHoldFrames {};
+    bool LastScreenSwap {};
+    int StereoViews() const;
+
     struct sFinalPassConfig
     {
         u32 uScreenSwap[192];

@@ -165,6 +165,7 @@ private:
     bool BetterPolygons {};
     bool Stereo {};
     bool StereoDirty {};
+    int LastStereoViews {};
     int StereoSeparation = 16;
     bool StereoAdaptive = false;
     int StereoAdaptiveTarget = 24;
