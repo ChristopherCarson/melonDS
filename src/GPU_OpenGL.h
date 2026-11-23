@@ -24,6 +24,7 @@
 #include "GPU2D_OpenGL.h"
 #include "GPU3D_OpenGL.h"
 #include "GPU3D_Compute.h"
+#include "StereoCaptureFallback.h"
 
 namespace melonDS
 {
@@ -85,6 +86,8 @@ private:
     static constexpr int StereoHoldDuration = 60;
     int StereoHoldFrames {};
     bool LastScreenSwap {};
+    StereoCaptureFallback CaptureFallback;
+    bool CaptureSeenThisFrame {};
     int StereoViews() const;
 
     struct sFinalPassConfig

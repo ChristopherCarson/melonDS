@@ -299,6 +299,8 @@ void GLRenderer::Reset()
 
     StereoHoldFrames = StereoHoldDuration;
     LastScreenSwap = GPU.ScreenSwap;
+    CaptureFallback.Reset(GPU.ScreenSwap);
+    CaptureSeenThisFrame = false;
 
     Rend2D_A->Reset();
     Rend2D_B->Reset();
@@ -425,6 +427,8 @@ int GLRenderer::StereoViews() const
 {
     if (!Stereo && !StereoTop)
         return StereoView_Center;
+    if (CaptureFallback.Active())
+        return StereoView_Center;
     if (StereoHoldFrames > 0)
         return StereoView_Center | StereoView_Eyes;
 
@@ -439,6 +443,7 @@ void GLRenderer::DrawScanline(u32 line)
     // engine between screens: render every view for a while around those.
     if (GPU.CaptureEnable || GPU.ScreenSwap != LastScreenSwap)
         StereoHoldFrames = StereoHoldDuration;
+    CaptureSeenThisFrame |= GPU.CaptureEnable;
     LastScreenSwap = GPU.ScreenSwap;
 
     u32 dispcnt_a_diff = DispCntA ^ GPU.GPU2D_A.DispCnt;
@@ -688,7 +693,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
                 if (Stereo)
                     glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[backbuf], 0, eye + 2);
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, StereoTex2D[eye]);
+                glBindTexture(GL_TEXTURE_2D, CaptureFallback.Active() ? OutputTex2D[0] : StereoTex2D[eye]);
                 glDrawArrays(GL_TRIANGLES, 0, 2*3);
             }
             if (StereoTop)
@@ -711,6 +716,9 @@ void GLRenderer::VBlank()
 
     if (GPU.CaptureEnable)
         DoCapture(LastCapLine, 192);
+
+    CaptureFallback.EndFrame(GPU.ScreenSwap, CaptureSeenThisFrame || GPU.CaptureEnable);
+    CaptureSeenThisFrame = false;
 
     LastLine = 0;
     LastCapLine = 0;

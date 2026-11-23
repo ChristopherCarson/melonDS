@@ -74,6 +74,10 @@ geometry to that screen; 2D content appears identically in both eyes.
 Keyboard and joystick shortcuts for toggling each screen's SBS 3D can be assigned
 under Config > Input and hotkeys > General hotkeys. Each shortcut operates independently.
 
+The renderer detects rapid screen swaps near display capture as a sign of dual-screen
+3D and temporarily uses the same flat image for both eyes to reduce stereo ghosting.
+This heuristic may not recognize every game. Stereo returns shortly after swapping stops.
+
 This experimental mode renders two views of directly displayed 3D geometry. 2D layers
 and display captures remain flat, and geometry clipped by the original DS view can be
 missing at the edges, especially with larger separation. Stereo layouts override rotation
