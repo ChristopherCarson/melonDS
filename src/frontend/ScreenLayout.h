@@ -48,7 +48,7 @@ enum ScreenSizing
     screenSizing_MAX,
 };
 
-const int kMaxScreenTransforms = 3;
+const int kMaxScreenTransforms = 4;
 
 class ScreenLayout
 {
@@ -74,13 +74,17 @@ public:
                bool swapScreens,
                float topAspect, float botAspect);
 
+    void SetupStereo(int screenWidth, int screenHeight, int screenGap, bool integerScale,
+                     bool bottomOnly, bool halfSBS, bool stereoTop = false, bool topOnly = false,
+                     bool stereoBottom = true);
+
     // get a 2x3 transform matrix for each screen and whether it's a top or bottom screen
     // note: the transform assumes an origin point at the top left of the display,
     // X going right and Y going down
     // for each screen the source coordinates should be (0,0) and (256,192)
     // 'out' should point to an array of 6*MaxScreenTransforms floats
     // 'kind' should point to an array of MaxScreenTransforms ints
-    // (0 = indicates top screen, 1 = bottom screen)
+    // (0 = top, 1 = bottom, 2/3 = bottom eyes, 4/5 = top eyes)
     // returns the amount of screens
     int GetScreenTransforms(float* out, int* kind);
 
@@ -90,6 +94,7 @@ public:
 
 private:
     float TopScreenMtx[6];
+    float TopRightScreenMtx[6];
     float BotScreenMtx[6];
     float HybScreenMtx[6];
     float TouchMtx[6];
@@ -97,6 +102,8 @@ private:
     bool TopEnable;
     bool BotEnable;
     bool HybEnable;
+    bool StereoEnable;
+    bool StereoTopEnable;
     int HybScreen;
     int HybPrevTouchScreen; // 0:unknown, 1:buttom screen, 2:hybrid screen
 };

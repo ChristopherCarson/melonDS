@@ -19,6 +19,7 @@
 #ifndef SCREEN_H
 #define SCREEN_H
 
+#include <atomic>
 #include <optional>
 #include <deque>
 #include <map>
@@ -81,11 +82,15 @@ protected:
     EmuInstance* emuInstance;
 
     bool filter;
+    std::atomic<bool> hq4xFilter{false};
 
     int screenRotation;
     int screenGap;
     int screenLayout;
     bool screenSwap;
+    bool stereoScreen;
+    bool stereoTop;
+    bool stereoHalfSBS;
     int screenSizing;
     bool integerScaling;
     int screenAspectTop, screenAspectBot;
@@ -222,7 +227,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderHQ4xULoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;

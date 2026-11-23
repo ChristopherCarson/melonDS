@@ -68,7 +68,14 @@ private slots:
 
     void on_cbxGLResolution_currentIndexChanged(int idx);
     void on_cbBetterPolygons_stateChanged(int state);
+    void on_cbStereo_stateChanged(int state);
+    void on_cbStereoTop_stateChanged(int state);
+    void on_cbStereoHalfSBS_stateChanged(int state);
+    void on_sbStereoSeparation_valueChanged(int value);
+    void on_cbStereoAdaptive_stateChanged(int state);
+    void on_sbStereoAdaptiveTarget_valueChanged(int value);
     void on_cbxComputeHiResCoords_stateChanged(int state);
+    void on_cbHQ4x_stateChanged(int state);
 
     void on_cbSoftwareThreaded_stateChanged(int state);
 private:
@@ -87,7 +94,14 @@ private:
     int oldSoftThreaded;
     int oldGLScale;
     int oldGLBetterPolygons;
+    bool oldStereo;
+    bool oldStereoTop;
+    bool oldStereoHalfSBS;
+    int oldStereoSeparation;
+    bool oldStereoAdaptive;
+    int oldStereoAdaptiveTarget;
     int oldHiresCoordinates;
+    bool oldHQ4x;
 };
 
 #endif // VIDEOSETTINGSDIALOG_H

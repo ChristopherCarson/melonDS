@@ -157,6 +157,7 @@ signals:
 
     void swapScreensToggle();
     void screenEmphasisToggle();
+    void stereoToggle(bool top);
 
     void syncVolumeLevel();
 

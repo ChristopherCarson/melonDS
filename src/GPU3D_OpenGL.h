@@ -23,6 +23,7 @@
 #include "OpenGLSupport.h"
 #include "GPU3D_TexcacheOpenGL.h"
 #include "NonStupidBitfield.h"
+#include "GPU3D_Stereo.h"
 
 namespace melonDS
 {
@@ -37,6 +38,7 @@ public:
     void Reset() override;
 
     void SetRenderSettings(int scale, bool betterpolygons) noexcept;
+    void SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
@@ -85,6 +87,8 @@ private:
     int RenderPolygonBatch(int i) const;
     int RenderPolygonEdgeBatch(int i) const;
     void RenderSceneChunk(int y, int h);
+    void RenderFrameEye(int captureinfo[16], int eye);
+    void AllocateStereoColorBuffers();
 
 
     enum
@@ -100,6 +104,7 @@ private:
 
     GLuint RenderShader[2] {};
     GLint RenderModeULoc = 0;
+    GLint StereoShiftULoc = 0;
     GLuint CurShaderID = -1;
 
     GLuint FinalPassEdgeShader {};
@@ -136,6 +141,7 @@ private:
     // * RGBA: 4x8bit
     // * ST: 2x16bit
     // * polygon data: 3x32bit (polygon/texture attributes)
+    // * original clip-space W: 32bit
     //
     // polygon attributes:
     // * bit4-7, 11, 14-15, 24-29: POLYGON_ATTR
@@ -144,7 +150,7 @@ private:
     // * bit9: W-buffering (?)
 
     GLuint VertexBufferID {};
-    u32 VertexBuffer[10240 * 7] {};
+    u32 VertexBuffer[10240 * 8] {};
     u32 NumVertices {};
 
     GLuint VertexArrayID {};
@@ -156,9 +162,17 @@ private:
 
     int ScaleFactor {};
     bool BetterPolygons {};
+    bool Stereo {};
+    bool StereoDirty {};
+    int StereoSeparation = 16;
+    bool StereoAdaptive = false;
+    int StereoAdaptiveTarget = 24;
+    double EffectiveStereoSeparation = 16.0;
+    AdaptiveStereo StereoAdapter;
+    float StereoShift {};
     int ScreenW {}, ScreenH {};
 
-    GLuint ColorBufferTex {}, DepthBufferTex {}, AttrBufferTex {};
+    GLuint ColorBufferTex {}, StereoColorBufferTex[2] {}, DepthBufferTex {}, AttrBufferTex {};
 
     GLuint MainFramebuffer {};
 };

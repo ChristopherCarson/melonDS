@@ -24,6 +24,8 @@
 #include "types.h"
 
 #include "GPU3D.h"
+#include "GPU3D_ComputeStereo.h"
+#include "GPU3D_Stereo.h"
 
 #include "OpenGLSupport.h"
 
@@ -44,6 +46,7 @@ public:
     void Reset() override;
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
+    void SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget);
 
     void RenderFrame() override;
     void RestartFrame() override;
@@ -180,7 +183,8 @@ private:
         u32 SortWorkWorkCount[4];
     };
 
-    static const int MaxYSpanSetups = 6144*2;
+    // Stereo clipping can introduce additional vertices and edge spans.
+    static const int MaxYSpanSetups = 2048*24;
     std::vector<SetupIndices> YSpanIndices {};
     SpanSetupY YSpanSetups[MaxYSpanSetups] {};
     RenderPolygon RenderPolygons[2048] {};
@@ -212,20 +216,30 @@ private:
     u8 ClearBitmapDirty {};
 
     GLuint Framebuffer = 0;
+    GLuint StereoFramebuffer[2] {};
 
     int ScreenWidth {}, ScreenHeight {};
     int TilesPerLine {}, TileLines {};
     int ScaleFactor = -1;
     int MaxWorkTiles {};
     bool HiresCoordinates {};
+    bool Stereo {};
+    bool StereoDirty = true;
+    int StereoSeparation = 16;
+    bool StereoAdaptive = false;
+    int StereoAdaptiveTarget = 24;
+    double EffectiveStereoSeparation = 16.0;
+    AdaptiveStereo StereoAdapter;
 
     int ShaderStepIdx = 0;
 
     void DeleteShaders();
 
-    void SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to);
-    void SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2]);
-    void SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2]);
+    void SetupAttrs(SpanSetupY* span, const ComputeSpanVertices& vertices, int from, int to);
+    void SetupYSpan(RenderPolygon* rp, SpanSetupY* span, const ComputeSpanVertices& vertices, int from, int to, int side);
+    void SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, const ComputeSpanVertices& vertices, int vertex, int side);
+    void RenderFrameEye(int captureinfo[16], int eye);
+    void AllocateStereoFramebuffers();
 
     bool CompileShader(GLuint& shader, const std::string& source, const std::initializer_list<const char*>& defines);
 };

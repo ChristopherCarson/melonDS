@@ -47,7 +47,15 @@ void VideoSettingsDialog::setEnabled()
     ui->cbSoftwareThreaded->setEnabled(softwareRenderer);
     ui->cbxGLResolution->setEnabled(!softwareRenderer);
     ui->cbBetterPolygons->setEnabled(renderer == renderer3D_OpenGL);
+    ui->cbStereo->setEnabled(!softwareRenderer);
+    ui->cbStereoTop->setEnabled(!softwareRenderer);
+    bool stereoEnabled = !softwareRenderer && (ui->cbStereo->isChecked() || ui->cbStereoTop->isChecked());
+    ui->cbStereoHalfSBS->setEnabled(stereoEnabled);
+    ui->sbStereoSeparation->setEnabled(stereoEnabled);
+    ui->cbStereoAdaptive->setEnabled(stereoEnabled);
+    ui->sbStereoAdaptiveTarget->setEnabled(stereoEnabled && ui->cbStereoAdaptive->isChecked());
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
+    ui->cbHQ4x->setEnabled(renderer == renderer3D_OpenGLCompute);
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -65,7 +73,14 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldSoftThreaded = cfg.GetBool("3D.Soft.Threaded");
     oldGLScale = cfg.GetInt("3D.GL.ScaleFactor");
     oldGLBetterPolygons = cfg.GetBool("3D.GL.BetterPolygons");
+    oldStereo = cfg.GetBool("3D.GL.Stereo");
+    oldStereoTop = cfg.GetBool("3D.GL.StereoTop");
+    oldStereoHalfSBS = cfg.GetBool("3D.GL.StereoHalfSBS");
+    oldStereoSeparation = cfg.GetInt("3D.GL.StereoSeparation");
+    oldStereoAdaptive = cfg.GetBool("3D.GL.StereoAdaptive");
+    oldStereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget");
     oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
+    oldHQ4x = cfg.GetBool("3D.GL.HQ4x");
 
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
@@ -98,7 +113,14 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbxGLResolution->setCurrentIndex(oldGLScale-1);
 
     ui->cbBetterPolygons->setChecked(oldGLBetterPolygons != 0);
+    ui->cbStereo->setChecked(oldStereo);
+    ui->cbStereoTop->setChecked(oldStereoTop);
+    ui->cbStereoHalfSBS->setChecked(oldStereoHalfSBS);
+    ui->sbStereoSeparation->setValue(oldStereoSeparation);
+    ui->cbStereoAdaptive->setChecked(oldStereoAdaptive);
+    ui->sbStereoAdaptiveTarget->setValue(oldStereoAdaptiveTarget);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
+    ui->cbHQ4x->setChecked(oldHQ4x);
 
     if (!oldVSync)
         ui->sbVSyncInterval->setEnabled(false);
@@ -137,7 +159,14 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     cfg.SetBool("3D.Soft.Threaded", oldSoftThreaded);
     cfg.SetInt("3D.GL.ScaleFactor", oldGLScale);
     cfg.SetBool("3D.GL.BetterPolygons", oldGLBetterPolygons);
+    cfg.SetBool("3D.GL.Stereo", oldStereo);
+    cfg.SetBool("3D.GL.StereoTop", oldStereoTop);
+    cfg.SetBool("3D.GL.StereoHalfSBS", oldStereoHalfSBS);
+    cfg.SetInt("3D.GL.StereoSeparation", oldStereoSeparation);
+    cfg.SetBool("3D.GL.StereoAdaptive", oldStereoAdaptive);
+    cfg.SetInt("3D.GL.StereoAdaptiveTarget", oldStereoAdaptiveTarget);
     cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
+    cfg.SetBool("3D.GL.HQ4x", oldHQ4x);
 
     emit updateVideoSettings(old_gl != UsesGL());
 
@@ -222,10 +251,62 @@ void VideoSettingsDialog::on_cbBetterPolygons_stateChanged(int state)
     emit updateVideoSettings(false);
 }
 
+void VideoSettingsDialog::on_cbStereo_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.Stereo", state != 0);
+    setEnabled();
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_sbStereoSeparation_valueChanged(int value)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.GL.StereoSeparation", value);
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbStereoAdaptive_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.StereoAdaptive", state != 0);
+    setEnabled();
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_sbStereoAdaptiveTarget_valueChanged(int value)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.GL.StereoAdaptiveTarget", value);
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbStereoTop_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.StereoTop", state != 0);
+    setEnabled();
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbStereoHalfSBS_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.StereoHalfSBS", state != 0);
+    emit updateVideoSettings(false);
+}
+
 void VideoSettingsDialog::on_cbxComputeHiResCoords_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("3D.GL.HiresCoordinates", (state != 0));
 
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbHQ4x_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.HQ4x", state != 0);
     emit updateVideoSettings(false);
 }

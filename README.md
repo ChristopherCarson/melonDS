@@ -32,6 +32,47 @@ DS BIOS dumps from a DSi or 3DS can be used with no compatibility issues. DSi BI
 
 As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 
+### Stereoscopic screens
+
+In Config > Video settings, select OpenGL (Classic) or OpenGL (Compute shader) and enable
+Stereoscopic bottom screen, Stereoscopic top screen, or both. Compute can avoid shadow
+flickering seen with Classic.
+Adjust Stereo separation to control the depth effect. Separation is 50% stronger than in
+the initial stereo build, including for previously saved settings.
+
+Optionally enable Adaptive stereo strength to reduce separation in scenes with large
+estimated eye disparity. Stereo separation remains the maximum strength; Depth target
+sets the approximate disparity target in native DS pixels. Lower targets reduce the
+effect more aggressively. This scene-based estimate is not a strict limit or a direct
+camera-zoom detector, so adjust it for the game. Strength returns gradually as the
+scene changes.
+
+When only bottom stereo is enabled, the top screen appears once above the two bottom
+views. To separate the screens, open another window with View > Open new window, then
+use View > Screen sizing to set one window to Top only and the other to Bottom only.
+Both bottom views accept touch input.
+For a display that expands half side-by-side 3D, enable Half SBS in Video settings;
+each eye is squeezed horizontally so the display can expand it to the correct shape.
+Enable Stereoscopic top screen to show the top screen as a side-by-side pair,
+including in a Top only window. The top pair has depth when the game directs 3D
+geometry to that screen; 2D content appears identically in both eyes.
+Keyboard and joystick shortcuts for toggling each screen's SBS 3D can be assigned
+under Config > Input and hotkeys > General hotkeys. Each shortcut operates independently.
+
+This experimental mode renders two views of directly displayed 3D geometry. 2D layers
+and display captures remain flat, and geometry clipped by the original DS view can be
+missing at the edges, especially with larger separation. Stereo layouts override rotation
+and screen swapping. Without the top-screen option, a display that splits the whole
+picture will also split the single top screen unless it is shown in a separate window.
+Stereo renders three 3D passes and
+can be substantially slower, particularly at high internal resolutions. Enabling
+the top pair also uses additional graphics memory.
+
+With OpenGL (Compute shader), Video settings also offers an optional Android-style
+HQ4x screen filter. It filters the complete displayed image, including 3D, without
+reducing the internal rendering resolution. It replaces the regular screen filtering
+while enabled and does not affect DS display capture. It can reduce performance.
+
 ## How to build
 See [BUILD.md](./BUILD.md) for build instructions.
 
@@ -69,3 +110,11 @@ the Free Software Foundation, either version 3 of the License, or
 
 ### External
 * Images used in the Input Config Dialog - see `src/frontend/qt_sdl/InputConfig/resources/LICENSE.md`
+
+To run dynamic build:
+The packaged Release build can be started by double-clicking `build\melonDS.exe`.
+Keep its DLLs and plugin folders alongside it; the existing `build\melonDS.toml`
+continues to hold its settings. The PowerShell launch below also remains available.
+
+$env:Path = "C:\msys64\ucrt64\bin;C:\msys64\usr\bin;$env:Path"
+& "C:\Users\chris\repos\melonDS\build\melonDS.exe"

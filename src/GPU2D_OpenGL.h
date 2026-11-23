@@ -42,6 +42,7 @@ public:
     void PostSavestate();
 
     void SetScaleFactor(int scale);
+    void SetStereo(bool enabled);
 
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
@@ -110,6 +111,12 @@ private:
 
     GLuint OutputFB {};
     GLuint OutputTex {};
+    GLuint StereoOutputFB[2] {};
+    GLuint StereoOutputTex[2] {};
+    bool Stereo {};
+
+    void AllocateStereoOutputs();
+    void RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d);
 
     // std140 compliant config struct for the layer shader
     struct sLayerConfig

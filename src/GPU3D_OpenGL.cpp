@@ -62,7 +62,7 @@ bool GLRenderer3D::BuildRenderShader(bool wbuffer)
     bool ret = OpenGL::CompileVertexFragmentProgram(prog,
         vsbuf, fsbuf,
         shadername,
-        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}},
+        {{"vPosition", 0}, {"vColor", 1}, {"vTexcoord", 2}, {"vPolygonAttr", 3}, {"vClipW", 4}},
         {{"oColor", 0}, {"oAttr", 1}});
 
     if (!ret) return false;
@@ -92,6 +92,8 @@ void GLRenderer3D::UseRenderShader(bool wbuffer)
     CurShaderID = flags;
 
     RenderModeULoc = glGetUniformLocation(RenderShader[flags], "uRenderMode");
+    StereoShiftULoc = glGetUniformLocation(RenderShader[flags], "uStereoShift");
+    glUniform1f(StereoShiftULoc, StereoShift);
 }
 
 void SetupDefaultTexParams(GLuint tex)
@@ -249,13 +251,15 @@ bool GLRenderer3D::Init()
     glGenVertexArrays(1, &VertexArrayID);
     glBindVertexArray(VertexArrayID);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribIPointer(0, 4, GL_UNSIGNED_SHORT, 7*4, (void*)(0));
+    glVertexAttribIPointer(0, 4, GL_UNSIGNED_SHORT, 8*4, (void*)(0));
     glEnableVertexAttribArray(1); // color
-    glVertexAttribIPointer(1, 4, GL_UNSIGNED_BYTE, 7*4, (void*)(2*4));
+    glVertexAttribIPointer(1, 4, GL_UNSIGNED_BYTE, 8*4, (void*)(2*4));
     glEnableVertexAttribArray(2); // texcoords
-    glVertexAttribIPointer(2, 2, GL_SHORT, 7*4, (void*)(3*4));
+    glVertexAttribIPointer(2, 2, GL_SHORT, 8*4, (void*)(3*4));
     glEnableVertexAttribArray(3); // attrib
-    glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
+    glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 8*4, (void*)(4*4));
+    glEnableVertexAttribArray(4);
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, 8*4, (void*)(7*4));
 
     glGenBuffers(1, &IndexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
@@ -266,6 +270,9 @@ bool GLRenderer3D::Init()
     // color buffers
     glGenTextures(1, &ColorBufferTex);
     SetupDefaultTexParams(ColorBufferTex);
+    glGenTextures(2, StereoColorBufferTex);
+    SetupDefaultTexParams(StereoColorBufferTex[0]);
+    SetupDefaultTexParams(StereoColorBufferTex[1]);
 
     // depth/stencil buffer
     glGenTextures(1, &DepthBufferTex);
@@ -279,6 +286,8 @@ bool GLRenderer3D::Init()
     SetupDefaultTexParams(AttrBufferTex);
 
     Parent.OutputTex3D = ColorBufferTex;
+    Parent.StereoTex3D[0] = StereoColorBufferTex[0];
+    Parent.StereoTex3D[1] = StereoColorBufferTex[1];
 
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
@@ -296,6 +305,7 @@ GLRenderer3D::~GLRenderer3D()
 
     glDeleteFramebuffers(1, &MainFramebuffer);
     glDeleteTextures(1, &ColorBufferTex);
+    glDeleteTextures(2, StereoColorBufferTex);
     glDeleteTextures(1, &DepthBufferTex);
     glDeleteTextures(1, &AttrBufferTex);
 
@@ -320,6 +330,25 @@ void GLRenderer3D::Reset()
 {
     Texcache.Reset();
     ClearBitmapDirty = 0x3;
+    StereoDirty = true;
+    StereoAdapter.Reset();
+}
+
+void GLRenderer3D::SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget) noexcept
+{
+    if (Stereo != enabled || StereoSeparation != separation ||
+        StereoAdaptive != adaptive || StereoAdaptiveTarget != adaptiveTarget)
+    {
+        bool wasStereo = Stereo;
+        Stereo = enabled;
+        StereoSeparation = separation;
+        StereoAdaptive = adaptive;
+        StereoAdaptiveTarget = adaptiveTarget;
+        StereoAdapter.Reset();
+        StereoDirty = true;
+        if (Stereo && !wasStereo && ScaleFactor)
+            AllocateStereoColorBuffers();
+    }
 }
 
 void GLRenderer3D::SetBetterPolygons(bool betterpolygons) noexcept
@@ -348,6 +377,9 @@ void GLRenderer3D::SetRenderSettings(int scale, bool betterpolygons) noexcept
 
     glBindTexture(GL_TEXTURE_2D, ColorBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    if (Stereo)
+        AllocateStereoColorBuffers();
+    StereoDirty = true;
 
     glBindTexture(GL_TEXTURE_2D, DepthBufferTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
@@ -366,6 +398,15 @@ void GLRenderer3D::SetRenderSettings(int scale, bool betterpolygons) noexcept
 
     //glLineWidth(scale);
     //glLineWidth(1.5);
+}
+
+void GLRenderer3D::AllocateStereoColorBuffers()
+{
+    for (GLuint tex : StereoColorBufferTex)
+    {
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    }
 }
 
 
@@ -477,6 +518,7 @@ u32* GLRenderer3D::SetupVertex(const Polygon* poly, int vid, const Vertex* vtx, 
     *vptr++ = vtxattr | (zshift << 16);
     *vptr++ = texlayer;
     *vptr++ = TextureWidth(poly->TexParam) | (TextureHeight(poly->TexParam) << 16);
+    *vptr++ = vtx->Position[3];
 
     return vptr;
 }
@@ -661,6 +703,7 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
                 u32 cX = 0, cY = 0;
                 float cZ = 0;
                 float cW = 0;
+                float cClipW = 0;
 
                 float cR = 0, cG = 0, cB = 0;
                 float cS = 0, cT = 0;
@@ -674,6 +717,7 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
 
                     float fw = (float)poly->FinalW[j] * poly->NumVertices;
                     cW += 1.0f / fw;
+                    cClipW += 1.0f / ((float)vtx->Position[3] * poly->NumVertices);
 
                     if (poly->WBuffer) cZ += poly->FinalZ[j] / fw;
                     else               cZ += poly->FinalZ[j];
@@ -690,6 +734,7 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
                 cY /= poly->NumVertices;
 
                 cW = 1.0f / cW;
+                cClipW = 1.0f / cClipW;
 
                 if (poly->WBuffer) cZ *= cW;
                 else               cZ /= poly->NumVertices;
@@ -724,6 +769,7 @@ void GLRenderer3D::BuildPolygons(GLRenderer3D::RendererPolygon* polygons, int np
                 *vptr++ = vtxattr | (zshift << 16);
                 *vptr++ = curtexlayer;
                 *vptr++ = TextureWidth(texparam) | (TextureHeight(texparam) << 16);
+                *vptr++ = (u32)cClipW;
 
                 vidx++;
 
@@ -1273,8 +1319,17 @@ void GLRenderer3D::RenderSceneChunk(int y, int h)
 
 void GLRenderer3D::RenderFrame()
 {
+    double separation = StereoSeparation;
+    if (Stereo && StereoAdaptive)
+        separation *= StereoAdapter.Update(GPU3D.RenderPolygonRAM.data(), GPU3D.RenderNumPolygons,
+                                           StereoSeparation, StereoAdaptiveTarget);
+    if (separation != EffectiveStereoSeparation)
+    {
+        EffectiveStereoSeparation = separation;
+        StereoDirty = true;
+    }
     u8 clrBitmapDirty;
-    if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical)
+    if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical && !StereoDirty)
     {
         return;
     }
@@ -1326,10 +1381,24 @@ void GLRenderer3D::RenderFrame()
 
     TexEnable = !!(GPU3D.RenderDispCnt & (1<<0));
 
+    for (int eye = 0; eye < (Stereo ? 3 : 1); eye++)
+        RenderFrameEye(captureinfo, eye);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
+    glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, ColorBufferTex, 0);
+    StereoDirty = false;
+}
+
+void GLRenderer3D::RenderFrameEye(int captureinfo[16], int eye)
+{
+    float shift = static_cast<float>(1.5 * EffectiveStereoSeparation);
+    StereoShift = eye == 1 ? shift : eye == 2 ? -shift : 0.0f;
     CurShaderID = -1;
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, MainFramebuffer);
+    glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                         eye == 0 ? ColorBufferTex : StereoColorBufferTex[eye-1], 0);
 
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
@@ -1472,7 +1541,7 @@ void GLRenderer3D::RenderFrame()
 
         BuildPolygons(&PolygonList[0], npolys, captureinfo);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*8*4, VertexBuffer);
 
         // bind to access the index buffer
         glBindVertexArray(VertexArrayID);

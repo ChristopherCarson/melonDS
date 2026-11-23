@@ -69,7 +69,11 @@ private:
     GLuint RectVtxArray {};
 
     GLuint OutputTex3D {};
+    GLuint StereoTex3D[2] {};
     GLuint OutputTex2D[2] {};
+    GLuint StereoTex2D[2] {};
+    bool Stereo {};
+    bool StereoTop {};
 
     struct sFinalPassConfig
     {
@@ -144,6 +148,7 @@ private:
     int Aux0VRAMCap {};
 
     void SetScaleFactor(int scale);
+    void AllocateOutputBuffers();
 
     void RenderScreen(int ystart, int yend);
     void DoCapture(int ystart, int yend);

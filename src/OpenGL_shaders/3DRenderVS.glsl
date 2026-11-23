@@ -16,6 +16,9 @@ in uvec4 vPosition;
 in uvec4 vColor;
 in ivec2 vTexcoord;
 in ivec3 vPolygonAttr;
+in uint vClipW;
+
+uniform float uStereoShift;
 
 smooth out vec4 fColor;
 smooth out vec2 fTexcoord;
@@ -32,6 +35,9 @@ void main()
 
     vec4 fpos;
     fpos.xy = (((vec2(vPosition.xy) ) * 2.0) / uScreenSize) - 1.0;
+    // The stereo views converge at W=16 in the DS's 20.12 clip coordinates.
+    if (uStereoShift != 0.0 && vClipW != 0u)
+        fpos.x += (uStereoShift * (65536.0 / float(vClipW) - 1.0) * 2.0) / 256.0;
 #ifdef WBuffer
     fZ = float(vPosition.z << zshift) / 16777216.0;
     fpos.z = 0;

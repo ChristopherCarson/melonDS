@@ -56,6 +56,8 @@ enum
     HK_GuitarGripRed,
     HK_GuitarGripYellow,
     HK_GuitarGripBlue,
+    HK_StereoBottomToggle,
+    HK_StereoTopToggle,
     HK_MAX
 };
 

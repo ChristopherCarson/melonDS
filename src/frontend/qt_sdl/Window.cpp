@@ -2199,6 +2199,29 @@ void MainWindow::onScreenEmphasisToggled()
     emit screenLayoutChange();
 }
 
+void MainWindow::onStereoToggled(bool top)
+{
+    if (VideoSettingsDialog::currentDlg)
+    {
+        emuInstance->osdAddMessage(0, "Close video settings before toggling stereo");
+        return;
+    }
+
+    if (globalCfg.GetInt("3D.Renderer") == renderer3D_Software)
+    {
+        emuInstance->osdAddMessage(0, "Stereo requires an OpenGL 3D renderer");
+        return;
+    }
+
+    const char* setting = top ? "3D.GL.StereoTop" : "3D.GL.Stereo";
+    bool enabled = !globalCfg.GetBool(setting);
+    globalCfg.SetBool(setting, enabled);
+    Config::Save();
+    onUpdateVideoSettings(false);
+    emuInstance->osdAddMessage(0, "%s screen stereo: %s", top ? "Top" : "Bottom",
+                               enabled ? "on" : "off");
+}
+
 void MainWindow::onEmuStart()
 {
     if (!hasMenu) return;
@@ -2294,6 +2317,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     }
 
     emuThread->updateVideoSettings();
+    emit screenLayoutChange();
     for (auto child: childwins)
     {
         // child windows may belong to a different instance
@@ -2301,6 +2325,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         auto thread = child->getEmuInstance()->getEmuThread();
         if (child->getWindowID() == 0)
             thread->updateVideoSettings();
+        emit child->screenLayoutChange();
     }
 
     if (glchange)

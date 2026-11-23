@@ -325,6 +325,18 @@ bool GLRenderer2D::Init()
 
     Parent.OutputTex2D[GPU2D.Num] = OutputTex;
 
+    if (GPU2D.Num == 0)
+    {
+        glGenTextures(2, StereoOutputTex);
+        glGenFramebuffers(2, StereoOutputFB);
+        for (int i = 0; i < 2; i++)
+        {
+            glBindTexture(GL_TEXTURE_2D, StereoOutputTex[i]);
+            glDefaultTexParams(GL_TEXTURE_2D);
+            Parent.StereoTex2D[i] = StereoOutputTex[i];
+        }
+    }
+
     // generate UBOs
 
     glGenBuffers(1, &LayerConfigUBO);
@@ -393,6 +405,8 @@ GLRenderer2D::~GLRenderer2D()
 
     glDeleteTextures(1, &OutputTex);
     glDeleteFramebuffers(1, &OutputFB);
+    glDeleteTextures(2, StereoOutputTex);
+    glDeleteFramebuffers(2, StereoOutputFB);
 
     glDeleteBuffers(1, &ScanlineConfigUBO);
     glDeleteBuffers(1, &SpriteScanlineConfigUBO);
@@ -481,6 +495,29 @@ void GLRenderer2D::SetScaleFactor(int scale)
     glBindFramebuffer(GL_FRAMEBUFFER, OutputFB);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, OutputTex, 0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+    if (Stereo)
+        AllocateStereoOutputs();
+}
+
+void GLRenderer2D::SetStereo(bool enabled)
+{
+    if (Stereo == enabled) return;
+    Stereo = enabled;
+    if (Stereo && ScaleFactor)
+        AllocateStereoOutputs();
+}
+
+void GLRenderer2D::AllocateStereoOutputs()
+{
+    for (int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, StereoOutputTex[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindFramebuffer(GL_FRAMEBUFFER, StereoOutputFB[i]);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, StereoOutputTex[i], 0);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    }
 }
 
 
@@ -1755,8 +1792,18 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 
 void GLRenderer2D::RenderScreen(int ystart, int yend)
 {
+    RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D);
+    if (Stereo)
+    {
+        for (int eye = 0; eye < 2; eye++)
+            RenderScreenOutput(ystart, yend, StereoOutputFB[eye], Parent.StereoTex3D[eye]);
+    }
+}
+
+void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d)
+{
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, OutputFB);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -1806,7 +1853,7 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
         glActiveTexture(GL_TEXTURE0 + i);
 
         if ((i == 0) && (DispCnt & (1<<3)))
-            glBindTexture(GL_TEXTURE_2D, Parent.OutputTex3D);
+            glBindTexture(GL_TEXTURE_2D, tex3d);
         else
             glBindTexture(GL_TEXTURE_2D, BGLayerTex[i]);
 

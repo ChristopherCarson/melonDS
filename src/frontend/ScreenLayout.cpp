@@ -116,6 +116,8 @@ ScreenLayout::ScreenLayout()
     TopEnable = true;
     BotEnable = true;
     HybEnable = false;
+    StereoEnable = false;
+    StereoTopEnable = false;
     HybScreen = 0;
     HybPrevTouchScreen = 0;
 }
@@ -129,6 +131,8 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     bool swapScreens,
     float topAspect, float botAspect)
 {
+    StereoEnable = false;
+    StereoTopEnable = false;
     HybEnable = screenLayout == 3;
     if (HybEnable)
     {
@@ -446,23 +450,78 @@ void ScreenLayout::Setup(int screenWidth, int screenHeight,
     }
 }
 
+void ScreenLayout::SetupStereo(int screenWidth, int screenHeight, int screenGap, bool integerScale,
+                               bool bottomOnly, bool halfSBS, bool stereoTop, bool topOnly,
+                               bool stereoBottom)
+{
+    StereoEnable = stereoBottom;
+    StereoTopEnable = stereoTop;
+    TopEnable = !bottomOnly;
+    BotEnable = !topOnly;
+    HybEnable = BotEnable && stereoBottom;
+    HybScreen = 1;
+    HybPrevTouchScreen = 0;
+
+    float pairWidth = halfSBS ? 256.0f : 512.0f;
+    float layoutHeight = (bottomOnly || topOnly) ? 192.0f : 384.0f + screenGap;
+    float scale = std::min(screenWidth / pairWidth, screenHeight / layoutHeight);
+    if (integerScale && scale >= 1.0f)
+        scale = floorf(scale);
+    if (scale <= 0.0f)
+        scale = 1.0f;
+
+    float eyeScaleX = scale * (halfSBS ? 0.5f : 1.0f);
+    float leftX = (screenWidth / 2.0f - 256.0f * eyeScaleX) / 2.0f;
+    float rightX = leftX + screenWidth / 2.0f;
+    float topX = (screenWidth - 256.0f * scale) / 2.0f;
+    float topY = (screenHeight - layoutHeight * scale) / 2.0f;
+    float bottomY = bottomOnly ? topY : topY + (192.0f + screenGap) * scale;
+
+    M23_Identity(TopScreenMtx);
+    M23_Identity(TopRightScreenMtx);
+    M23_Identity(BotScreenMtx);
+    M23_Identity(HybScreenMtx);
+    M23_Scale(TopScreenMtx, stereoTop ? eyeScaleX : scale, scale);
+    M23_Scale(TopRightScreenMtx, eyeScaleX, scale);
+    M23_Scale(BotScreenMtx, stereoBottom ? eyeScaleX : scale, scale);
+    M23_Scale(HybScreenMtx, eyeScaleX, scale);
+    M23_Translate(TopScreenMtx, stereoTop ? leftX : topX, topY);
+    M23_Translate(TopRightScreenMtx, rightX, topY);
+    M23_Translate(BotScreenMtx, stereoBottom ? leftX : topX, bottomY);
+    M23_Translate(HybScreenMtx, rightX, bottomY);
+
+    M23_Identity(TouchMtx);
+    M23_Identity(HybTouchMtx);
+    float bottomScaleX = stereoBottom ? eyeScaleX : scale;
+    float bottomX = stereoBottom ? leftX : topX;
+    M23_Scale(TouchMtx, 1.0f / bottomScaleX, 1.0f / scale);
+    M23_Scale(HybTouchMtx, 1.0f / eyeScaleX, 1.0f / scale);
+    M23_Translate(TouchMtx, -bottomX / bottomScaleX, -bottomY / scale);
+    M23_Translate(HybTouchMtx, -rightX / eyeScaleX, -bottomY / scale);
+}
+
 int ScreenLayout::GetScreenTransforms(float* out, int* kind)
 {
     int num = 0;
     if (TopEnable)
     {
         memcpy(out + 6*num, TopScreenMtx, sizeof(TopScreenMtx));
-        kind[num++] = 0;
+        kind[num++] = StereoTopEnable ? 4 : 0;
+        if (StereoTopEnable)
+        {
+            memcpy(out + 6*num, TopRightScreenMtx, sizeof(TopRightScreenMtx));
+            kind[num++] = 5;
+        }
     }
     if (BotEnable)
     {
         memcpy(out + 6*num, BotScreenMtx, sizeof(BotScreenMtx));
-        kind[num++] = 1;
+        kind[num++] = StereoEnable ? 2 : 1;
     }
     if (HybEnable)
     {
         memcpy(out + 6*num, HybScreenMtx, sizeof(HybScreenMtx));
-        kind[num++] = HybScreen;
+        kind[num++] = StereoEnable ? 3 : HybScreen;
     }
     return num;
 }

@@ -828,6 +828,13 @@ struct RendererSettings
 
     // "improved polygon splitting" (regular OpenGL renderer)
     bool BetterPolygons;
+
+    // render separate left and right eye images
+    bool Stereo = false;
+    int StereoSeparation = 16;
+    bool StereoTop = false;
+    bool StereoAdaptive = false;
+    int StereoAdaptiveTarget = 24;
 };
 
 class Renderer

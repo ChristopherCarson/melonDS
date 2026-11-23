@@ -78,6 +78,9 @@ void EmuThread::attachWindow(MainWindow* window)
     connect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
 
+    if (window->getWindowID() == 0)
+        connect(this, SIGNAL(stereoToggle(bool)), window, SLOT(onStereoToggled(bool)));
+
     if (window->winHasMenu())
     {
         connect(this, SIGNAL(windowLimitFPSChange()), window->actLimitFramerate, SLOT(trigger()));
@@ -95,6 +98,9 @@ void EmuThread::detachWindow(MainWindow* window)
     disconnect(this, SIGNAL(autoScreenSizingChange(int)), window->panel, SLOT(onAutoScreenSizingChanged(int)));
     disconnect(this, SIGNAL(windowFullscreenToggle()), window, SLOT(onFullscreenToggled()));
     disconnect(this, SIGNAL(screenEmphasisToggle()), window, SLOT(onScreenEmphasisToggled()));
+
+    if (window->getWindowID() == 0)
+        disconnect(this, SIGNAL(stereoToggle(bool)), window, SLOT(onStereoToggled(bool)));
 
     if (window->winHasMenu())
     {
@@ -167,6 +173,8 @@ void EmuThread::run()
 
         if (emuInstance->hotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
         if (emuInstance->hotkeyPressed(HK_SwapScreenEmphasis)) emit screenEmphasisToggle();
+        if (emuInstance->hotkeyPressed(HK_StereoBottomToggle)) emit stereoToggle(false);
+        if (emuInstance->hotkeyPressed(HK_StereoTopToggle)) emit stereoToggle(true);
 
         if (emuStatus == emuStatus_Running || emuStatus == emuStatus_FrameStep)
         {
@@ -882,7 +890,12 @@ void EmuThread::updateRenderer()
         .ScaleFactor = cfg.GetInt("3D.GL.ScaleFactor"),
         .Threaded = cfg.GetBool("3D.Soft.Threaded"),
         .HiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates"),
-        .BetterPolygons = cfg.GetBool("3D.GL.BetterPolygons")
+        .BetterPolygons = cfg.GetBool("3D.GL.BetterPolygons"),
+        .Stereo = cfg.GetBool("3D.GL.Stereo"),
+        .StereoSeparation = cfg.GetInt("3D.GL.StereoSeparation"),
+        .StereoTop = cfg.GetBool("3D.GL.StereoTop"),
+        .StereoAdaptive = cfg.GetBool("3D.GL.StereoAdaptive"),
+        .StereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget")
     };
 
     nds->GetRenderer().SetRenderSettings(settings);

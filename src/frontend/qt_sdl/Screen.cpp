@@ -129,6 +129,14 @@ void ScreenPanel::loadConfig()
     integerScaling = cfg.GetBool("IntegerScaling");
     screenAspectTop = cfg.GetInt("ScreenAspectTop");
     screenAspectBot = cfg.GetInt("ScreenAspectBot");
+    auto& globalCfg = emuInstance->getGlobalConfig();
+    stereoScreen = globalCfg.GetBool("3D.GL.Stereo") &&
+                   globalCfg.GetInt("3D.Renderer") != renderer3D_Software;
+    stereoTop = globalCfg.GetBool("3D.GL.StereoTop") &&
+                globalCfg.GetInt("3D.Renderer") != renderer3D_Software;
+    stereoHalfSBS = globalCfg.GetBool("3D.GL.StereoHalfSBS");
+    hq4xFilter = globalCfg.GetInt("3D.Renderer") == renderer3D_OpenGLCompute &&
+                 globalCfg.GetBool("3D.GL.HQ4x");
 }
 
 void ScreenPanel::setFilter(bool filter)
@@ -168,8 +176,15 @@ void ScreenPanel::setupScreenLayout()
     if (aspectBot == 0)
         aspectBot = ((float) w / h) / (4.f / 3.f);
 
-    layout.Setup(w, h,
-                static_cast<ScreenLayoutType>(screenLayout),
+    bool visibleStereo = (stereoScreen && screenSizing != screenSizing_TopOnly) ||
+                         (stereoTop && screenSizing != screenSizing_BotOnly);
+    if (visibleStereo)
+        layout.SetupStereo(w, h, screenGap, integerScaling,
+                           screenSizing == screenSizing_BotOnly, stereoHalfSBS,
+                           stereoTop, screenSizing == screenSizing_TopOnly, stereoScreen);
+    else
+        layout.Setup(w, h,
+                (stereoScreen || stereoTop) ? screenLayout_Natural : static_cast<ScreenLayoutType>(screenLayout),
                 static_cast<ScreenRotation>(screenRotation),
                 static_cast<ScreenSizing>(sizing),
                 screenGap,
@@ -188,6 +203,15 @@ QSize ScreenPanel::screenGetMinSize(int factor = 1)
     bool isHori = (screenRotation == screenRot_90Deg
         || screenRotation == screenRot_270Deg);
     int gap = screenGap * factor;
+
+    if ((stereoScreen && screenSizing != screenSizing_TopOnly) ||
+        (stereoTop && screenSizing != screenSizing_BotOnly))
+    {
+        int width = (stereoHalfSBS ? 256 : 512) * factor;
+        int height = (screenSizing == screenSizing_BotOnly || screenSizing == screenSizing_TopOnly)
+            ? 192 * factor : 384 * factor + gap;
+        return QSize(width, height);
+    }
 
     int w = 256 * factor;
     int h = 192 * factor;
@@ -935,6 +959,7 @@ void ScreenPanelGL::initOpenGL()
 
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
+    screenShaderHQ4xULoc = glGetUniformLocation(screenShaderProgram, "uHQ4x");
 
     const float vertices[] =
     {
@@ -950,7 +975,35 @@ void ScreenPanelGL::initOpenGL()
         256.f, 192.f,  1.f, 1.f, 1.f,
         0.f,   0.f,    0.f, 0.f, 1.f,
         256.f, 192.f,  1.f, 1.f, 1.f,
-        256.f, 0.f,    1.f, 0.f, 1.f
+        256.f, 0.f,    1.f, 0.f, 1.f,
+
+        0.f,   0.f,    0.f, 0.f, 2.f,
+        0.f,   192.f,  0.f, 1.f, 2.f,
+        256.f, 192.f,  1.f, 1.f, 2.f,
+        0.f,   0.f,    0.f, 0.f, 2.f,
+        256.f, 192.f,  1.f, 1.f, 2.f,
+        256.f, 0.f,    1.f, 0.f, 2.f,
+
+        0.f,   0.f,    0.f, 0.f, 3.f,
+        0.f,   192.f,  0.f, 1.f, 3.f,
+        256.f, 192.f,  1.f, 1.f, 3.f,
+        0.f,   0.f,    0.f, 0.f, 3.f,
+        256.f, 192.f,  1.f, 1.f, 3.f,
+        256.f, 0.f,    1.f, 0.f, 3.f,
+
+        0.f,   0.f,    0.f, 0.f, 4.f,
+        0.f,   192.f,  0.f, 1.f, 4.f,
+        256.f, 192.f,  1.f, 1.f, 4.f,
+        0.f,   0.f,    0.f, 0.f, 4.f,
+        256.f, 192.f,  1.f, 1.f, 4.f,
+        256.f, 0.f,    1.f, 0.f, 4.f,
+
+        0.f,   0.f,    0.f, 0.f, 5.f,
+        0.f,   192.f,  0.f, 1.f, 5.f,
+        256.f, 192.f,  1.f, 1.f, 5.f,
+        0.f,   0.f,    0.f, 0.f, 5.f,
+        256.f, 192.f,  1.f, 1.f, 5.f,
+        256.f, 0.f,    1.f, 0.f, 5.f
     };
 
     glGenBuffers(1, &screenVertexBuffer);
@@ -1155,7 +1208,9 @@ void ScreenPanelGL::drawScreen()
 
         screenSettingsLock.lock();
 
-        GLint filter = this->filter ? GL_LINEAR : GL_NEAREST;
+        bool hq4x = hq4xFilter.load();
+        glUniform1i(screenShaderHQ4xULoc, hq4x);
+        GLint filter = !hq4x && this->filter ? GL_LINEAR : GL_NEAREST;
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, filter);
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, filter);
 
@@ -1165,7 +1220,7 @@ void ScreenPanelGL::drawScreen()
         for (int i = 0; i < numScreens; i++)
         {
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
-            glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2 * 3, 2 * 3);
+            glDrawArrays(GL_TRIANGLES, screenKind[i] * 6, 2 * 3);
         }
 
         screenSettingsLock.unlock();

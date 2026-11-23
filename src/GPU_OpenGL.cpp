@@ -321,10 +321,19 @@ void GLRenderer::PostSavestate()
 
 void GLRenderer::SetRenderSettings(RendererSettings& settings)
 {
+    bool stereo = settings.Stereo;
+    bool stereoTop = settings.StereoTop;
+    bool stereoChanged = Stereo != stereo || StereoTop != stereoTop;
+    bool scaleChanged = ScaleFactor != settings.ScaleFactor;
+    Stereo = stereo;
+    StereoTop = stereoTop;
     SetScaleFactor(settings.ScaleFactor);
+    if (stereoChanged && !scaleChanged)
+        AllocateOutputBuffers();
 
     auto rend2d = dynamic_cast<GLRenderer2D*>(Rend2D_A.get());
     rend2d->SetScaleFactor(settings.ScaleFactor);
+    rend2d->SetStereo(Stereo || StereoTop);
 
     rend2d = dynamic_cast<GLRenderer2D*>(Rend2D_B.get());
     rend2d->SetScaleFactor(settings.ScaleFactor);
@@ -332,11 +341,15 @@ void GLRenderer::SetRenderSettings(RendererSettings& settings)
     if (IsCompute)
     {
         auto rend3d = dynamic_cast<ComputeRenderer3D *>(Rend3D.get());
+        rend3d->SetStereo(Stereo || StereoTop, settings.StereoSeparation,
+                          settings.StereoAdaptive, settings.StereoAdaptiveTarget);
         rend3d->SetRenderSettings(settings.ScaleFactor, settings.HiresCoordinates);
     }
     else
     {
         auto rend3d = dynamic_cast<GLRenderer3D *>(Rend3D.get());
+        rend3d->SetStereo(Stereo || StereoTop, settings.StereoSeparation,
+                          settings.StereoAdaptive, settings.StereoAdaptiveTarget);
         rend3d->SetRenderSettings(settings.ScaleFactor, settings.BetterPolygons);
     }
 }
@@ -350,8 +363,6 @@ void GLRenderer::SetScaleFactor(int scale)
     ScaleFactor = scale;
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
-
-    const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
 
     glBindTexture(GL_TEXTURE_2D_ARRAY, CaptureOutput256Tex);
     glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 256*ScaleFactor, 256*ScaleFactor, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -381,10 +392,19 @@ void GLRenderer::SetScaleFactor(int scale)
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
+    AllocateOutputBuffers();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void GLRenderer::AllocateOutputBuffers()
+{
+    const GLenum fbassign2[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
     for (int i = 0; i < 2; i++)
     {
         glBindTexture(GL_TEXTURE_2D_ARRAY, FPOutputTex[i]);
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, ScreenW, ScreenH,
+                     StereoTop ? 6 : (Stereo ? 4 : 2), 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
         glBindFramebuffer(GL_FRAMEBUFFER, FPOutputFB[i]);
         glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[i], 0, 0);
@@ -392,7 +412,6 @@ void GLRenderer::SetScaleFactor(int scale)
         glDrawBuffers(2, fbassign2);
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
@@ -552,6 +571,28 @@ void GLRenderer::RenderScreen(int ystart, int yend)
     {
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
+        if (Stereo || StereoTop)
+        {
+            const GLenum stereoBuffers[] = {
+                StereoTop ? GLenum(GL_COLOR_ATTACHMENT0) : GLenum(GL_NONE),
+                Stereo ? GLenum(GL_COLOR_ATTACHMENT1) : GLenum(GL_NONE)
+            };
+            const GLenum normalBuffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+            glDrawBuffers(2, stereoBuffers);
+            for (int eye = 0; eye < 2; eye++)
+            {
+                if (StereoTop)
+                    glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[backbuf], 0, eye + 4);
+                if (Stereo)
+                    glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[backbuf], 0, eye + 2);
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+            if (StereoTop)
+                glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[backbuf], 0, 0);
+            if (Stereo)
+                glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[backbuf], 0, 1);
+            glDrawBuffers(2, normalBuffers);
+        }
     }
     else
     {
@@ -607,6 +648,31 @@ void GLRenderer::RenderScreen(int ystart, int yend)
         glBindBuffer(GL_ARRAY_BUFFER, FPVertexBufferID);
         glBindVertexArray(FPVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+        if (Stereo || StereoTop)
+        {
+            const GLenum stereoBuffers[] = {
+                StereoTop ? GLenum(GL_COLOR_ATTACHMENT0) : GLenum(GL_NONE),
+                Stereo ? GLenum(GL_COLOR_ATTACHMENT1) : GLenum(GL_NONE)
+            };
+            const GLenum normalBuffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+            glDrawBuffers(2, stereoBuffers);
+            for (int eye = 0; eye < 2; eye++)
+            {
+                if (StereoTop)
+                    glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[backbuf], 0, eye + 4);
+                if (Stereo)
+                    glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[backbuf], 0, eye + 2);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, StereoTex2D[eye]);
+                glDrawArrays(GL_TRIANGLES, 0, 2*3);
+            }
+            if (StereoTop)
+                glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FPOutputTex[backbuf], 0, 0);
+            if (Stereo)
+                glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[backbuf], 0, 1);
+            glDrawBuffers(2, normalBuffers);
+        }
     }
 
     glDisable(GL_SCISSOR_TEST);

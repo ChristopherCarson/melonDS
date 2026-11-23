@@ -208,6 +208,9 @@ bool ComputeRenderer3D::Init()
     glGenBuffers(1, &WorkDescMemory);
 
     glGenTextures(1, &YSpanIndicesTexture);
+    glGenTextures(2, StereoFramebuffer);
+    Parent.StereoTex3D[0] = StereoFramebuffer[0];
+    Parent.StereoTex3D[1] = StereoFramebuffer[1];
 
     glGenBuffers(1, &MetaUniformMemory);
     glBindBuffer(GL_UNIFORM_BUFFER, MetaUniformMemory);
@@ -263,6 +266,7 @@ ComputeRenderer3D::~ComputeRenderer3D()
     glDeleteBuffers(1, &YSpanIndicesTextureMemory);
     glDeleteTextures(1, &YSpanIndicesTexture);
     glDeleteTextures(1, &Framebuffer);
+    glDeleteTextures(2, StereoFramebuffer);
     glDeleteBuffers(1, &MetaUniformMemory);
 
     glDeleteSamplers(9, Samplers);
@@ -318,10 +322,49 @@ void ComputeRenderer3D::Reset()
 {
     Texcache.Reset();
     ClearBitmapDirty = 0x3;
+    StereoDirty = true;
+    StereoAdapter.Reset();
+}
+
+void ComputeRenderer3D::SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget)
+{
+    if (Stereo == enabled && StereoSeparation == separation &&
+        StereoAdaptive == adaptive && StereoAdaptiveTarget == adaptiveTarget) return;
+    bool allocate = enabled && !Stereo && ScaleFactor > 0;
+    Stereo = enabled;
+    StereoSeparation = separation;
+    StereoAdaptive = adaptive;
+    StereoAdaptiveTarget = adaptiveTarget;
+    StereoAdapter.Reset();
+    StereoDirty = true;
+    if (allocate) AllocateStereoFramebuffers();
+}
+
+void ComputeRenderer3D::AllocateStereoFramebuffers()
+{
+    for (GLuint texture : StereoFramebuffer)
+    {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, ScreenWidth, ScreenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    }
 }
 
 void ComputeRenderer3D::SetRenderSettings(int scale, bool highResolutionCoordinates)
 {
+    if (ScaleFactor == scale)
+    {
+        if (HiresCoordinates != highResolutionCoordinates)
+        {
+            HiresCoordinates = highResolutionCoordinates;
+            StereoDirty = true;
+        }
+        return;
+    }
+
     u8 TileScale;
 
     if (ScaleFactor != -1)
@@ -384,6 +427,8 @@ void ComputeRenderer3D::SetRenderSettings(int scale, bool highResolutionCoordina
     glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, ScreenWidth, ScreenHeight);
 
     Parent.OutputTex3D = Framebuffer;
+    if (Stereo) AllocateStereoFramebuffers();
+    StereoDirty = true;
 
     // eh those are pretty bad guesses
     // though real hw shouldn't be eable to render all 2048 polygons on every line either
@@ -401,27 +446,21 @@ void ComputeRenderer3D::SetRenderSettings(int scale, bool highResolutionCoordina
 }
 
 
-void ComputeRenderer3D::SetupAttrs(SpanSetupY* span, Polygon* poly, int from, int to)
+void ComputeRenderer3D::SetupAttrs(SpanSetupY* span, const ComputeSpanVertices& vertices, int from, int to)
 {
-    span->Z0 = poly->FinalZ[from];
-    span->W0 = poly->FinalW[from];
-    span->Z1 = poly->FinalZ[to];
-    span->W1 = poly->FinalW[to];
-    span->ColorR0 = poly->Vertices[from]->FinalColor[0];
-    span->ColorG0 = poly->Vertices[from]->FinalColor[1];
-    span->ColorB0 = poly->Vertices[from]->FinalColor[2];
-    span->ColorR1 = poly->Vertices[to]->FinalColor[0];
-    span->ColorG1 = poly->Vertices[to]->FinalColor[1];
-    span->ColorB1 = poly->Vertices[to]->FinalColor[2];
-    span->TexcoordU0 = poly->Vertices[from]->TexCoords[0];
-    span->TexcoordV0 = poly->Vertices[from]->TexCoords[1];
-    span->TexcoordU1 = poly->Vertices[to]->TexCoords[0];
-    span->TexcoordV1 = poly->Vertices[to]->TexCoords[1];
+    const auto& a = vertices[from];
+    const auto& b = vertices[to];
+    span->Z0 = a.Z; span->W0 = a.W;
+    span->Z1 = b.Z; span->W1 = b.W;
+    span->ColorR0 = a.Color[0]; span->ColorG0 = a.Color[1]; span->ColorB0 = a.Color[2];
+    span->ColorR1 = b.Color[0]; span->ColorG1 = b.Color[1]; span->ColorB1 = b.Color[2];
+    span->TexcoordU0 = a.Texcoord[0]; span->TexcoordV0 = a.Texcoord[1];
+    span->TexcoordU1 = b.Texcoord[0]; span->TexcoordV1 = b.Texcoord[1];
 }
 
-void ComputeRenderer3D::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int vertex, int side, s32 positions[10][2])
+void ComputeRenderer3D::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, const ComputeSpanVertices& vertices, int vertex, int side)
 {
-    s32 x0 = positions[vertex][0];
+    s32 x0 = vertices[vertex].X;
     if (side)
     {
         span->DxInitial = -0x40000;
@@ -435,7 +474,7 @@ void ComputeRenderer3D::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Pol
     span->X0 = span->X1 = x0;
     span->XMin = x0;
     span->XMax = x0;
-    span->Y0 = span->Y1 = positions[vertex][1];
+    span->Y0 = span->Y1 = vertices[vertex].Y;
 
     if (span->XMin < rp->XMin)
     {
@@ -457,17 +496,17 @@ void ComputeRenderer3D::SetupYSpanDummy(RenderPolygon* rp, SpanSetupY* span, Pol
 
     span->IsDummy = true;
 
-    SetupAttrs(span, poly, vertex, vertex);
+    SetupAttrs(span, vertices, vertex, vertex);
 }
 
-void ComputeRenderer3D::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, Polygon* poly, int from, int to, int side, s32 positions[10][2])
+void ComputeRenderer3D::SetupYSpan(RenderPolygon* rp, SpanSetupY* span, const ComputeSpanVertices& vertices, int from, int to, int side)
 {
-    span->X0 = positions[from][0];
-    span->X1 = positions[to][0];
-    span->Y0 = positions[from][1];
-    span->Y1 = positions[to][1];
+    span->X0 = vertices[from].X;
+    span->X1 = vertices[to].X;
+    span->Y0 = vertices[from].Y;
+    span->Y1 = vertices[to].Y;
 
-    SetupAttrs(span, poly, from, to);
+    SetupAttrs(span, vertices, from, to);
 
     s32 minXY, maxXY;
     bool negative = false;
@@ -633,8 +672,17 @@ struct Variant
 void ComputeRenderer3D::RenderFrame()
 {
     assert(!NeedsShaderCompile());
+    double separation = StereoSeparation;
+    if (Stereo && StereoAdaptive)
+        separation *= StereoAdapter.Update(GPU3D.RenderPolygonRAM.data(), GPU3D.RenderNumPolygons,
+                                           StereoSeparation, StereoAdaptiveTarget);
+    if (separation != EffectiveStereoSeparation)
+    {
+        EffectiveStereoSeparation = separation;
+        StereoDirty = true;
+    }
     u8 clrBitmapDirty;
-    if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical)
+    if (!Texcache.Update(clrBitmapDirty) && GPU3D.RenderFrameIdentical && !StereoDirty)
     {
         return;
     }
@@ -684,6 +732,13 @@ void ComputeRenderer3D::RenderFrame()
         ClearBitmapDirty = 0;
     }
 
+    for (int eye = 0; eye < (Stereo ? 3 : 1); eye++)
+        RenderFrameEye(captureinfo, eye);
+    StereoDirty = false;
+}
+
+void ComputeRenderer3D::RenderFrameEye(int captureinfo[16], int eye)
+{
     int numYSpans = 0;
     int numSetupIndices = 0;
 
@@ -708,12 +763,6 @@ void ComputeRenderer3D::RenderFrame()
     for (int i = 0; i < GPU3D.RenderNumPolygons; i++)
     {
         Polygon* polygon = GPU3D.RenderPolygonRAM[i];
-
-        u32 nverts = polygon->NumVertices;
-        u32 vtop = polygon->VTop, vbot = polygon->VBottom;
-
-        u32 curVL = vtop, curVR = vtop;
-        u32 nextVL, nextVR;
 
         RenderPolygons[i].FirstXSpan = numSetupIndices;
         RenderPolygons[i].Attr = polygon->Attr;
@@ -827,6 +876,58 @@ void ComputeRenderer3D::RenderFrame()
         RenderPolygons[i].Variant = prevVariant;
         RenderPolygons[i].TextureLayer = (float)prevTexLayer;
 
+        ComputeSpanVertices vertices {};
+        int nverts = polygon->NumVertices;
+        s32 xmin = ScreenWidth, xmax = 0;
+        s32 ytop = ScreenHeight, ybot = 0;
+        for (int j = 0; j < nverts; j++)
+        {
+            const Vertex* vertex = polygon->Vertices[j];
+            if (HiresCoordinates)
+            {
+                vertices[j].X = (vertex->HiresPosition[0] * ScaleFactor) >> 4;
+                vertices[j].Y = (vertex->HiresPosition[1] * ScaleFactor) >> 4;
+            }
+            else
+            {
+                vertices[j].X = vertex->FinalPosition[0] * ScaleFactor;
+                vertices[j].Y = vertex->FinalPosition[1] * ScaleFactor;
+            }
+            vertices[j].X += ComputeStereoShiftX(vertex->Position[3], ScaleFactor, EffectiveStereoSeparation, eye);
+            vertices[j].Z = polygon->FinalZ[j];
+            vertices[j].W = polygon->FinalW[j];
+            for (int k = 0; k < 3; k++) vertices[j].Color[k] = vertex->FinalColor[k];
+            for (int k = 0; k < 2; k++) vertices[j].Texcoord[k] = vertex->TexCoords[k];
+            xmin = std::min(vertices[j].X, xmin);
+            xmax = std::max(vertices[j].X, xmax);
+        }
+
+        u32 vtop = polygon->VTop, vbot = polygon->VBottom;
+        if (eye && xmax - xmin > 4096)
+        {
+            // The span rasterizer uses signed 18-bit fixed-point X increments.
+            nverts = ClipComputeStereoPolygon(vertices, nverts, ScreenWidth, polygon->WBuffer);
+            if (nverts == 0)
+            {
+                RenderPolygons[i].YTop = RenderPolygons[i].YBot = 0;
+                continue;
+            }
+            vtop = vbot = 0;
+            for (int j = 1; j < nverts; j++)
+            {
+                if (vertices[j].Y < vertices[vtop].Y) vtop = j;
+                if (vertices[j].Y > vertices[vbot].Y ||
+                    (vertices[j].Y == vertices[vbot].Y && vertices[j].X > vertices[vbot].X)) vbot = j;
+            }
+        }
+        for (int j = 0; j < nverts; j++)
+        {
+            ytop = std::min(vertices[j].Y, ytop);
+            ybot = std::max(vertices[j].Y, ybot);
+        }
+
+        u32 curVL = vtop, curVR = vtop;
+        u32 nextVL, nextVR;
         if (polygon->FacingView)
         {
             nextVL = curVL + 1;
@@ -841,24 +942,6 @@ void ComputeRenderer3D::RenderFrame()
             nextVR = curVR + 1;
             if (nextVR >= nverts) nextVR = 0;
         }
-
-        s32 scaledPositions[10][2];
-        s32 ytop = ScreenHeight, ybot = 0;
-        for (int i = 0; i < polygon->NumVertices; i++)
-        {
-            if (HiresCoordinates)
-            {
-                scaledPositions[i][0] = (polygon->Vertices[i]->HiresPosition[0] * ScaleFactor) >> 4;
-                scaledPositions[i][1] = (polygon->Vertices[i]->HiresPosition[1] * ScaleFactor) >> 4;
-            }
-            else
-            {
-                scaledPositions[i][0] = polygon->Vertices[i]->FinalPosition[0] * ScaleFactor;
-                scaledPositions[i][1] = polygon->Vertices[i]->FinalPosition[1] * ScaleFactor;
-            }
-            ytop = std::min(scaledPositions[i][1], ytop);
-            ybot = std::max(scaledPositions[i][1], ybot);
-        }
         RenderPolygons[i].YTop = ytop;
         RenderPolygons[i].YBot = ybot;
         RenderPolygons[i].XMin = ScreenWidth;
@@ -870,20 +953,20 @@ void ComputeRenderer3D::RenderFrame()
 
             RenderPolygons[i].YBot++;
 
-            int j = 1;
-            if (scaledPositions[j][0] < scaledPositions[vtop][0]) vtop = j;
-            if (scaledPositions[j][0] > scaledPositions[vbot][0]) vbot = j;
+            int j = nverts > 1 ? 1 : 0;
+            if (vertices[j].X < vertices[vtop].X) vtop = j;
+            if (vertices[j].X > vertices[vbot].X) vbot = j;
 
             j = nverts - 1;
-            if (scaledPositions[j][0] < scaledPositions[vtop][0]) vtop = j;
-            if (scaledPositions[j][0] > scaledPositions[vbot][0]) vbot = j;
+            if (vertices[j].X < vertices[vtop].X) vtop = j;
+            if (vertices[j].X > vertices[vbot].X) vbot = j;
 
             assert(numYSpans < MaxYSpanSetups);
             u32 curSpanL = numYSpans;
-            SetupYSpanDummy(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, vtop, 0, scaledPositions);
+            SetupYSpanDummy(&RenderPolygons[i], &YSpanSetups[numYSpans++], vertices, vtop, 0);
             assert(numYSpans < MaxYSpanSetups);
             u32 curSpanR = numYSpans;
-            SetupYSpanDummy(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, vbot, 1, scaledPositions);
+            SetupYSpanDummy(&RenderPolygons[i], &YSpanSetups[numYSpans++], vertices, vbot, 1);
 
             YSpanIndices[numSetupIndices].PolyIdx = i;
             YSpanIndices[numSetupIndices].SpanIdxL = curSpanL;
@@ -895,16 +978,16 @@ void ComputeRenderer3D::RenderFrame()
         {
             u32 curSpanL = numYSpans;
             assert(numYSpans < MaxYSpanSetups);
-            SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, curVL, nextVL, 0, scaledPositions);
+            SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], vertices, curVL, nextVL, 0);
             u32 curSpanR = numYSpans;
             assert(numYSpans < MaxYSpanSetups);
-            SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, curVR, nextVR, 1, scaledPositions);
+            SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], vertices, curVR, nextVR, 1);
 
             for (u32 y = ytop; y < ybot; y++)
             {
-                if (y >= scaledPositions[nextVL][1] && curVL != polygon->VBottom)
+                if (y >= vertices[nextVL].Y && curVL != vbot)
                 {
-                    while (y >= scaledPositions[nextVL][1] && curVL != polygon->VBottom)
+                    while (y >= vertices[nextVL].Y && curVL != vbot)
                     {
                         curVL = nextVL;
                         if (polygon->FacingView)
@@ -924,11 +1007,11 @@ void ComputeRenderer3D::RenderFrame()
 
                     assert(numYSpans < MaxYSpanSetups);
                     curSpanL = numYSpans;
-                    SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], polygon, curVL, nextVL, 0, scaledPositions);
+                    SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], vertices, curVL, nextVL, 0);
                 }
-                if (y >= scaledPositions[nextVR][1] && curVR != polygon->VBottom)
+                if (y >= vertices[nextVR].Y && curVR != vbot)
                 {
-                    while (y >= scaledPositions[nextVR][1] && curVR != polygon->VBottom)
+                    while (y >= vertices[nextVR].Y && curVR != vbot)
                     {
                         curVR = nextVR;
                         if (polygon->FacingView)
@@ -947,7 +1030,7 @@ void ComputeRenderer3D::RenderFrame()
 
                     assert(numYSpans < MaxYSpanSetups);
                     curSpanR = numYSpans;
-                    SetupYSpan(&RenderPolygons[i] ,&YSpanSetups[numYSpans++], polygon, curVR, nextVR, 1, scaledPositions);
+                    SetupYSpan(&RenderPolygons[i], &YSpanSetups[numYSpans++], vertices, curVR, nextVR, 1);
                 }
 
                 YSpanIndices[numSetupIndices].PolyIdx = i;
@@ -1202,7 +1285,7 @@ void ComputeRenderer3D::RenderFrame()
     glDispatchCompute(ScreenWidth/TileSize, ScreenHeight/TileSize, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    glBindImageTexture(0, Framebuffer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    glBindImageTexture(0, eye == 0 ? Framebuffer : StereoFramebuffer[eye-1], 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
     u32 finalPassShader = 0;
     if (GPU3D.RenderDispCnt & (1<<4))
         finalPassShader |= 0x4;
@@ -1213,7 +1296,8 @@ void ComputeRenderer3D::RenderFrame()
     
     glUseProgram(ShaderFinalPass[finalPassShader]);
     glDispatchCompute(ScreenWidth/32, ScreenHeight, 1);
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT |
+                    GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
 
     glBindSampler(0, 0);
     glBindSampler(1, 0);

@@ -63,6 +63,107 @@
         </property>
        </widget>
       </item>
+      <item row="4" column="0">
+       <widget class="QCheckBox" name="cbStereo">
+        <property name="toolTip">
+         <string>Render separate left and right 3D views of the bottom screen.</string>
+        </property>
+        <property name="text">
+         <string>Stereoscopic bottom screen</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QCheckBox" name="cbStereoHalfSBS">
+        <property name="toolTip">
+         <string>Squeeze each eye horizontally for displays that expand half side-by-side 3D.</string>
+        </property>
+        <property name="text">
+         <string>Half side-by-side (Half SBS)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <layout class="QHBoxLayout" name="stereoSeparationLayout">
+        <item>
+         <widget class="QLabel" name="labelStereoSeparation">
+          <property name="text">
+           <string>Stereo separation:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="sbStereoSeparation">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>64</number>
+          </property>
+          <property name="value">
+           <number>16</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="10" column="0">
+       <widget class="QCheckBox" name="cbHQ4x">
+        <property name="toolTip">
+         <string>Smooth the entire displayed image, including 3D, using the Android-style HQ4x filter.</string>
+        </property>
+        <property name="text">
+         <string>HQ4x screen filter</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="cbStereoTop">
+        <property name="toolTip">
+         <string>Show the top screen as a side-by-side pair. 2D content remains flat.</string>
+        </property>
+        <property name="text">
+         <string>Stereoscopic top screen</string>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0">
+       <widget class="QCheckBox" name="cbStereoAdaptive">
+        <property name="toolTip">
+         <string>Automatically reduce stereo separation when the scene has large depth differences.</string>
+        </property>
+        <property name="text">
+         <string>Adaptive stereo strength</string>
+        </property>
+       </widget>
+      </item>
+      <item row="9" column="0">
+       <layout class="QHBoxLayout" name="stereoAdaptiveTargetLayout">
+        <item>
+         <widget class="QLabel" name="labelStereoAdaptiveTarget">
+          <property name="text">
+           <string>Depth target:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="sbStereoAdaptiveTarget">
+          <property name="toolTip">
+           <string>Target eye disparity in native DS pixels. Lower values reduce stereo strength more aggressively. This is an estimate, not a strict limit.</string>
+          </property>
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>128</number>
+          </property>
+          <property name="value">
+           <number>24</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>

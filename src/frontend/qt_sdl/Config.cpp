@@ -55,6 +55,8 @@ DefaultList<int> DefaultInts =
     {"Screen.VSyncInterval", 1},
     {"3D.Renderer", renderer3D_Software},
     {"3D.GL.ScaleFactor", 1},
+    {"3D.GL.StereoSeparation", 16},
+    {"3D.GL.StereoAdaptiveTarget", 24},
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
 #endif
@@ -80,6 +82,8 @@ RangeList IntRanges =
     {"3D.Renderer", {0, renderer3D_Max-1}},
     {"Screen.VSyncInterval", {1, 20}},
     {"3D.GL.ScaleFactor", {1, 16}},
+    {"3D.GL.StereoSeparation", {1, 64}},
+    {"3D.GL.StereoAdaptiveTarget", {1, 128}},
     {"Audio.Interpolation", {0, 4}},
     {"Instance*.Audio.Volume", {0, 256}},
     {"Mic.InputType", {0, micInputType_MAX-1}},
