@@ -57,7 +57,9 @@ void VideoSettingsDialog::setEnabled()
     ui->sbStereoEdgeCrop->setEnabled(stereoEnabled);
     ui->cbStereoKeep2DInFront->setEnabled(stereoEnabled);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
-    ui->cbHQ4x->setEnabled(renderer == renderer3D_OpenGLCompute);
+    bool upscaleAvailable = renderer == renderer3D_OpenGLCompute;
+    ui->cbxUpscaleFilter->setEnabled(upscaleAvailable);
+    ui->cbHQ4x2DOnly->setEnabled(upscaleAvailable && ui->cbxUpscaleFilter->currentIndex() != 0);
 }
 
 VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::VideoSettingsDialog)
@@ -85,6 +87,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldStereoKeep2DInFront = cfg.GetBool("3D.GL.StereoKeep2DInFront");
     oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
     oldHQ4x = cfg.GetBool("3D.GL.HQ4x");
+    oldUpscaleFilter = cfg.GetInt("3D.GL.UpscaleFilter");
+    oldHQ4x2DOnly = cfg.GetBool("3D.GL.HQ4x2DOnly");
 
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, renderer3D_Software);
@@ -126,7 +130,9 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->sbStereoEdgeCrop->setValue(oldStereoEdgeCrop);
     ui->cbStereoKeep2DInFront->setChecked(oldStereoKeep2DInFront);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
-    ui->cbHQ4x->setChecked(oldHQ4x);
+    // the legacy HQ4x checkbox setting maps to the HQ4x filter
+    ui->cbxUpscaleFilter->setCurrentIndex((oldUpscaleFilter == 0 && oldHQ4x) ? 1 : oldUpscaleFilter);
+    ui->cbHQ4x2DOnly->setChecked(oldHQ4x2DOnly);
 
     if (!oldVSync)
         ui->sbVSyncInterval->setEnabled(false);
@@ -175,6 +181,8 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     cfg.SetBool("3D.GL.StereoKeep2DInFront", oldStereoKeep2DInFront);
     cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
     cfg.SetBool("3D.GL.HQ4x", oldHQ4x);
+    cfg.SetInt("3D.GL.UpscaleFilter", oldUpscaleFilter);
+    cfg.SetBool("3D.GL.HQ4x2DOnly", oldHQ4x2DOnly);
 
     emit updateVideoSettings(old_gl != UsesGL());
 
@@ -326,9 +334,18 @@ void VideoSettingsDialog::on_cbxComputeHiResCoords_stateChanged(int state)
     emit updateVideoSettings(false);
 }
 
-void VideoSettingsDialog::on_cbHQ4x_stateChanged(int state)
+void VideoSettingsDialog::on_cbxUpscaleFilter_currentIndexChanged(int index)
 {
     auto& cfg = emuInstance->getGlobalConfig();
-    cfg.SetBool("3D.GL.HQ4x", state != 0);
+    cfg.SetInt("3D.GL.UpscaleFilter", index);
+    cfg.SetBool("3D.GL.HQ4x", false);
+    setEnabled();
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbHQ4x2DOnly_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.HQ4x2DOnly", state != 0);
     emit updateVideoSettings(false);
 }

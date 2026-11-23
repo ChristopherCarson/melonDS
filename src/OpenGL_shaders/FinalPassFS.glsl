@@ -81,17 +81,20 @@ void main()
     output_main = (output_main << 2) | (output_main >> 6);
     output_sub = (output_sub << 2) | (output_sub >> 6);
 
+    // carry the compositor's 3D tag (alpha < 1) through to the display
+    float alpha_main = (uDispModeA == 1) ? texture(MainInputTexA, fTexcoord.xy, 0).a : 1.0;
+
     int line = int(fTexcoord.y * 192);
     bool swapbit = uScreenSwap[line>>2][line&0x3];
 
     if (!swapbit)
     {
         oTopColor = vec4(vec3(output_sub) / 255.0, 1.0);
-        oBottomColor = vec4(vec3(output_main) / 255.0, 1.0);
+        oBottomColor = vec4(vec3(output_main) / 255.0, alpha_main);
     }
     else
     {
-        oTopColor = vec4(vec3(output_main) / 255.0, 1.0);
+        oTopColor = vec4(vec3(output_main) / 255.0, alpha_main);
         oBottomColor = vec4(vec3(output_sub) / 255.0, 1.0);
     }
 }

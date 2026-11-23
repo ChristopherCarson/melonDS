@@ -255,6 +255,7 @@ vec4 CompositeLayers()
     ivec4 col2 = ivec4(0);
     int mask2 = 0;
     bool specialcase = false;
+    bool top3D = false;
 
     vec4 layercol[6];
     layercol[0] = BG0CalcAndFetch(bgcoord, line);
@@ -311,6 +312,7 @@ vec4 CompositeLayers()
                 col1 = ivec4(layercol[bg] * 255.0) >> ivec4(2,2,2,3);
                 mask1 = (1 << bg);
                 specialcase = (bg == 0) && uEnable3D;
+                top3D = specialcase;
             }
         }
 
@@ -321,6 +323,7 @@ vec4 CompositeLayers()
             col1 = ivec4(layercol[4] * 255.0) >> ivec4(2,2,2,3);
             mask1 = (1 << 4);
             specialcase = (objflags.r != 0);
+            top3D = false;
         }
     }
 
@@ -388,7 +391,9 @@ vec4 CompositeLayers()
         col1 = ((col1 * eva) + (col2 * evb) + 0x10) >> 5;
     }
 
-    return vec4(vec3(col1.rgb << 2) / 255.0, 1);
+    // Alpha tags pixels whose topmost layer is 3D so display filters can skip
+    // them. It stays nonzero so display capture still treats them as opaque.
+    return vec4(vec3(col1.rgb << 2) / 255.0, top3D ? 0.5 : 1.0);
 }
 
 void main()

@@ -108,12 +108,45 @@
        </layout>
       </item>
       <item row="12" column="0">
-       <widget class="QCheckBox" name="cbHQ4x">
+       <layout class="QHBoxLayout" name="upscaleFilterLayout">
+        <item>
+         <widget class="QLabel" name="labelUpscaleFilter">
+          <property name="text">
+           <string>Upscaling filter:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="cbxUpscaleFilter">
+          <property name="toolTip">
+           <string>Smooth the displayed image using a pixel-art upscaling filter (HQ4x or xBRZ).</string>
+          </property>
+          <item>
+           <property name="text">
+            <string>Off</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>HQ4x</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>xBRZ</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="13" column="0">
+       <widget class="QCheckBox" name="cbHQ4x2DOnly">
         <property name="toolTip">
-         <string>Smooth the entire displayed image, including 3D, using the Android-style HQ4x filter.</string>
+         <string>Apply the upscaling filter only to 2D graphics (backgrounds, sprites, text) and keep 3D models sharp.</string>
         </property>
         <property name="text">
-         <string>HQ4x screen filter</string>
+         <string>Upscaling filter: 2D graphics only</string>
         </property>
        </widget>
       </item>

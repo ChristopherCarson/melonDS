@@ -85,6 +85,7 @@ RangeList IntRanges =
     {"3D.GL.StereoSeparation", {1, 64}},
     {"3D.GL.StereoAdaptiveTarget", {1, 128}},
     {"3D.GL.StereoEdgeCrop", {0, 64}},
+    {"3D.GL.UpscaleFilter", {0, 2}}, // 0 = off, 1 = HQ4x, 2 = xBRZ
     {"Audio.Interpolation", {0, 4}},
     {"Instance*.Audio.Volume", {0, 256}},
     {"Mic.InputType", {0, micInputType_MAX-1}},
@@ -104,6 +105,7 @@ DefaultList<bool> DefaultBools =
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
     {"3D.GL.StereoKeep2DInFront", true},
+    {"3D.GL.HQ4x2DOnly", true},
     {"LimitFPS", true},
     {"Instance*.Window*.ShowOSD", true},
     {"Emu.DirectBoot", true},

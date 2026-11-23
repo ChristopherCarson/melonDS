@@ -82,7 +82,8 @@ protected:
     EmuInstance* emuInstance;
 
     bool filter;
-    std::atomic<bool> hq4xFilter{false};
+    std::atomic<int> upscaleFilter{0}; // 0 = off, 1 = HQ4x, 2 = xBRZ
+    std::atomic<bool> upscale2DOnly{true};
     std::atomic<int> stereoEdgeCrop{0};
 
     int screenRotation;
@@ -228,7 +229,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderHQ4xULoc, screenShaderCropULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderUpscaleFilterULoc, screenShaderUpscale2DOnlyULoc, screenShaderCropULoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;

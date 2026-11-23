@@ -77,7 +77,8 @@ private slots:
     void on_sbStereoAdaptiveTarget_valueChanged(int value);
     void on_sbStereoEdgeCrop_valueChanged(int value);
     void on_cbxComputeHiResCoords_stateChanged(int state);
-    void on_cbHQ4x_stateChanged(int state);
+    void on_cbxUpscaleFilter_currentIndexChanged(int index);
+    void on_cbHQ4x2DOnly_stateChanged(int state);
 
     void on_cbSoftwareThreaded_stateChanged(int state);
 private:
@@ -106,6 +107,8 @@ private:
     bool oldStereoKeep2DInFront;
     int oldHiresCoordinates;
     bool oldHQ4x;
+    int oldUpscaleFilter;
+    bool oldHQ4x2DOnly;
 };
 
 #endif // VIDEOSETTINGSDIALOG_H

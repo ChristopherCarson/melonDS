@@ -136,8 +136,11 @@ void ScreenPanel::loadConfig()
                 globalCfg.GetInt("3D.Renderer") != renderer3D_Software;
     stereoHalfSBS = globalCfg.GetBool("3D.GL.StereoHalfSBS");
     stereoEdgeCrop = globalCfg.GetInt("3D.GL.StereoEdgeCrop");
-    hq4xFilter = globalCfg.GetInt("3D.Renderer") == renderer3D_OpenGLCompute &&
-                 globalCfg.GetBool("3D.GL.HQ4x");
+    int upscale = globalCfg.GetInt("3D.GL.UpscaleFilter");
+    if (upscale == 0 && globalCfg.GetBool("3D.GL.HQ4x"))
+        upscale = 1; // legacy HQ4x checkbox setting
+    upscaleFilter = globalCfg.GetInt("3D.Renderer") == renderer3D_OpenGLCompute ? upscale : 0;
+    upscale2DOnly = globalCfg.GetBool("3D.GL.HQ4x2DOnly");
 }
 
 void ScreenPanel::setFilter(bool filter)
@@ -960,7 +963,8 @@ void ScreenPanelGL::initOpenGL()
 
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
-    screenShaderHQ4xULoc = glGetUniformLocation(screenShaderProgram, "uHQ4x");
+    screenShaderUpscaleFilterULoc = glGetUniformLocation(screenShaderProgram, "uUpscaleFilter");
+    screenShaderUpscale2DOnlyULoc = glGetUniformLocation(screenShaderProgram, "uUpscale2DOnly");
     screenShaderCropULoc = glGetUniformLocation(screenShaderProgram, "uCrop");
 
     const float vertices[] =
@@ -1210,9 +1214,10 @@ void ScreenPanelGL::drawScreen()
 
         screenSettingsLock.lock();
 
-        bool hq4x = hq4xFilter.load();
-        glUniform1i(screenShaderHQ4xULoc, hq4x);
-        GLint filter = !hq4x && this->filter ? GL_LINEAR : GL_NEAREST;
+        int upscale = upscaleFilter.load();
+        glUniform1i(screenShaderUpscaleFilterULoc, upscale);
+        glUniform1i(screenShaderUpscale2DOnlyULoc, upscale2DOnly.load());
+        GLint filter = !upscale && this->filter ? GL_LINEAR : GL_NEAREST;
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, filter);
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, filter);
 

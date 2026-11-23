@@ -85,10 +85,13 @@ that use display capture, or that just swapped screens, briefly render all three
 which can be substantially slower, particularly at high internal resolutions. Enabling
 the top pair also uses additional graphics memory.
 
-With OpenGL (Compute shader), Video settings also offers an optional Android-style
-HQ4x screen filter. It filters the complete displayed image, including 3D, without
-reducing the internal rendering resolution. It replaces the regular screen filtering
-while enabled and does not affect DS display capture. It can reduce performance.
+With OpenGL (Compute shader), Video settings also offers an optional upscaling filter for
+pixel art: the Android-style HQ4x, or xBRZ, which keeps edges sharper. It smooths the
+displayed image without reducing the internal rendering resolution. By default
+("Upscaling filter: 2D graphics only") it is applied only to 2D graphics such as
+backgrounds, sprites and text, keeping 3D models sharp; uncheck that option to filter the
+complete image, including 3D. It replaces the regular screen filtering while enabled and
+does not affect DS display capture. It can reduce performance, xBRZ more so than HQ4x.
 
 ## How to build
 See [BUILD.md](./BUILD.md) for build instructions.
