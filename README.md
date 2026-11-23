@@ -47,6 +47,21 @@ effect more aggressively. This scene-based estimate is not a strict limit or a d
 camera-zoom detector, so adjust it for the game. Strength returns gradually as the
 scene changes.
 
+Keep 2D in front of 3D (on by default) helps when the camera moves close, such as
+zoomed-in dialogue. The game's flat 2D elements, like text boxes and the HUD, sit at
+the screen plane, so close-up 3D would otherwise appear in front of them. This option
+pushes the whole 3D scene back just far enough that the nearest large 3D objects sit
+at the screen plane, then eases back as the camera pulls away. Scenes that stay behind
+the screen are unchanged. Use it together with Adaptive stereo strength, which accounts
+for the extra depth when reducing separation; without it, distant scenery can end up
+with large disparity during close-ups.
+
+The stereo shift leaves thin columns without scene content at the side edges of each
+eye view, which can show the backdrop color or artifacts. Raise Stereo edge crop in
+Video settings to black out that many native DS pixel columns on both the left and
+right edges of every eye view; use the smallest value that hides them. The default
+of 0 disables cropping.
+
 When only bottom stereo is enabled, the top screen appears once above the two bottom
 views. To separate the screens, open another window with View > Open new window, then
 use View > Screen sizing to set one window to Top only and the other to Bottom only.

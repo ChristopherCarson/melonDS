@@ -326,15 +326,18 @@ void ComputeRenderer3D::Reset()
     StereoAdapter.Reset();
 }
 
-void ComputeRenderer3D::SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget)
+void ComputeRenderer3D::SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget,
+                                  bool keepFlatInFront)
 {
     if (Stereo == enabled && StereoSeparation == separation &&
-        StereoAdaptive == adaptive && StereoAdaptiveTarget == adaptiveTarget) return;
+        StereoAdaptive == adaptive && StereoAdaptiveTarget == adaptiveTarget &&
+        StereoKeepFlatInFront == keepFlatInFront) return;
     bool allocate = enabled && !Stereo && ScaleFactor > 0;
     Stereo = enabled;
     StereoSeparation = separation;
     StereoAdaptive = adaptive;
     StereoAdaptiveTarget = adaptiveTarget;
+    StereoKeepFlatInFront = keepFlatInFront;
     StereoAdapter.Reset();
     StereoDirty = true;
     if (allocate) AllocateStereoFramebuffers();
@@ -673,9 +676,22 @@ void ComputeRenderer3D::RenderFrame()
 {
     assert(!NeedsShaderCompile());
     double separation = StereoSeparation;
-    if (Stereo && StereoAdaptive)
+    if (Stereo && (StereoAdaptive || StereoKeepFlatInFront))
+    {
         separation *= StereoAdapter.Update(GPU3D.RenderPolygonRAM.data(), GPU3D.RenderNumPolygons,
-                                           StereoSeparation, StereoAdaptiveTarget);
+                                           StereoSeparation, StereoAdaptiveTarget,
+                                           StereoAdaptive, StereoKeepFlatInFront);
+        if (StereoAdapter.Convergence() != StereoConvergence)
+        {
+            StereoConvergence = StereoAdapter.Convergence();
+            StereoDirty = true;
+        }
+    }
+    else if (StereoConvergence != 0.0)
+    {
+        StereoConvergence = 0.0;
+        StereoDirty = true;
+    }
     if (separation != EffectiveStereoSeparation)
     {
         EffectiveStereoSeparation = separation;
@@ -893,7 +909,8 @@ void ComputeRenderer3D::RenderFrameEye(int captureinfo[16], int eye)
                 vertices[j].X = vertex->FinalPosition[0] * ScaleFactor;
                 vertices[j].Y = vertex->FinalPosition[1] * ScaleFactor;
             }
-            vertices[j].X += ComputeStereoShiftX(vertex->Position[3], ScaleFactor, EffectiveStereoSeparation, eye);
+            vertices[j].X += ComputeStereoShiftX(vertex->Position[3], ScaleFactor, EffectiveStereoSeparation, eye,
+                                                 StereoConvergence);
             vertices[j].Z = polygon->FinalZ[j];
             vertices[j].W = polygon->FinalW[j];
             for (int k = 0; k < 3; k++) vertices[j].Color[k] = vertex->FinalColor[k];

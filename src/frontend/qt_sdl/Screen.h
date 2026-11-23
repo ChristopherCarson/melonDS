@@ -83,6 +83,7 @@ protected:
 
     bool filter;
     std::atomic<bool> hq4xFilter{false};
+    std::atomic<int> stereoEdgeCrop{0};
 
     int screenRotation;
     int screenGap;
@@ -227,7 +228,7 @@ private:
     GLuint screenVertexBuffer, screenVertexArray;
     GLuint screenTexture;
     GLuint screenShaderProgram;
-    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderHQ4xULoc;
+    GLint screenShaderTransformULoc, screenShaderScreenSizeULoc, screenShaderHQ4xULoc, screenShaderCropULoc;
 
     QMutex screenSettingsLock;
     WindowInfo windowInfo;

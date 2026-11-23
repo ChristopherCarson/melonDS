@@ -32,11 +32,11 @@ struct ComputeSpanVertex
 // A malformed ten-vertex polygon may cross each clipping plane repeatedly.
 using ComputeSpanVertices = std::array<ComputeSpanVertex, 32>;
 
-inline s32 ComputeStereoShiftX(s32 clipW, int scale, double separation, int eye)
+inline s32 ComputeStereoShiftX(s32 clipW, int scale, double separation, int eye, double convergence = 0.0)
 {
     if (!eye || !clipW) return 0;
     double shift = (eye == 1 ? 1.5 : -1.5) * separation * scale;
-    return static_cast<s32>(std::lround(shift * (65536.0 / clipW - 1.0)));
+    return static_cast<s32>(std::lround(shift * (65536.0 / clipW - 1.0 - convergence)));
 }
 
 inline int ClipComputeStereoPolygon(ComputeSpanVertices& vertices, int count, int width, bool wbuffer)

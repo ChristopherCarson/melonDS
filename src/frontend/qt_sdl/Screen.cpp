@@ -135,6 +135,7 @@ void ScreenPanel::loadConfig()
     stereoTop = globalCfg.GetBool("3D.GL.StereoTop") &&
                 globalCfg.GetInt("3D.Renderer") != renderer3D_Software;
     stereoHalfSBS = globalCfg.GetBool("3D.GL.StereoHalfSBS");
+    stereoEdgeCrop = globalCfg.GetInt("3D.GL.StereoEdgeCrop");
     hq4xFilter = globalCfg.GetInt("3D.Renderer") == renderer3D_OpenGLCompute &&
                  globalCfg.GetBool("3D.GL.HQ4x");
 }
@@ -960,6 +961,7 @@ void ScreenPanelGL::initOpenGL()
     screenShaderScreenSizeULoc = glGetUniformLocation(screenShaderProgram, "uScreenSize");
     screenShaderTransformULoc = glGetUniformLocation(screenShaderProgram, "uTransform");
     screenShaderHQ4xULoc = glGetUniformLocation(screenShaderProgram, "uHQ4x");
+    screenShaderCropULoc = glGetUniformLocation(screenShaderProgram, "uCrop");
 
     const float vertices[] =
     {
@@ -1217,10 +1219,15 @@ void ScreenPanelGL::drawScreen()
         glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
         glBindVertexArray(screenVertexArray);
 
+        // Stereo eye views (kinds 2-5) expose non-scene columns at both side edges.
+        float crop = stereoEdgeCrop.load() / 256.0f;
         for (int i = 0; i < numScreens; i++)
         {
+            int kind = screenKind[i];
+            float eyeCrop = kind >= 2 && kind <= 5 ? crop : 0.0f;
+            glUniform2f(screenShaderCropULoc, eyeCrop, eyeCrop);
             glUniformMatrix2x3fv(screenShaderTransformULoc, 1, GL_TRUE, screenMatrix[i]);
-            glDrawArrays(GL_TRIANGLES, screenKind[i] * 6, 2 * 3);
+            glDrawArrays(GL_TRIANGLES, kind * 6, 2 * 3);
         }
 
         screenSettingsLock.unlock();

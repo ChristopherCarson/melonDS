@@ -94,6 +94,8 @@ void GLRenderer3D::UseRenderShader(bool wbuffer)
     RenderModeULoc = glGetUniformLocation(RenderShader[flags], "uRenderMode");
     StereoShiftULoc = glGetUniformLocation(RenderShader[flags], "uStereoShift");
     glUniform1f(StereoShiftULoc, StereoShift);
+    StereoConvergenceULoc = glGetUniformLocation(RenderShader[flags], "uStereoConvergence");
+    glUniform1f(StereoConvergenceULoc, static_cast<float>(StereoConvergence));
 }
 
 void SetupDefaultTexParams(GLuint tex)
@@ -334,16 +336,19 @@ void GLRenderer3D::Reset()
     StereoAdapter.Reset();
 }
 
-void GLRenderer3D::SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget) noexcept
+void GLRenderer3D::SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget,
+                             bool keepFlatInFront) noexcept
 {
     if (Stereo != enabled || StereoSeparation != separation ||
-        StereoAdaptive != adaptive || StereoAdaptiveTarget != adaptiveTarget)
+        StereoAdaptive != adaptive || StereoAdaptiveTarget != adaptiveTarget ||
+        StereoKeepFlatInFront != keepFlatInFront)
     {
         bool wasStereo = Stereo;
         Stereo = enabled;
         StereoSeparation = separation;
         StereoAdaptive = adaptive;
         StereoAdaptiveTarget = adaptiveTarget;
+        StereoKeepFlatInFront = keepFlatInFront;
         StereoAdapter.Reset();
         StereoDirty = true;
         if (Stereo && !wasStereo && ScaleFactor)
@@ -1320,9 +1325,22 @@ void GLRenderer3D::RenderSceneChunk(int y, int h)
 void GLRenderer3D::RenderFrame()
 {
     double separation = StereoSeparation;
-    if (Stereo && StereoAdaptive)
+    if (Stereo && (StereoAdaptive || StereoKeepFlatInFront))
+    {
         separation *= StereoAdapter.Update(GPU3D.RenderPolygonRAM.data(), GPU3D.RenderNumPolygons,
-                                           StereoSeparation, StereoAdaptiveTarget);
+                                           StereoSeparation, StereoAdaptiveTarget,
+                                           StereoAdaptive, StereoKeepFlatInFront);
+        if (StereoAdapter.Convergence() != StereoConvergence)
+        {
+            StereoConvergence = StereoAdapter.Convergence();
+            StereoDirty = true;
+        }
+    }
+    else if (StereoConvergence != 0.0)
+    {
+        StereoConvergence = 0.0;
+        StereoDirty = true;
+    }
     if (separation != EffectiveStereoSeparation)
     {
         EffectiveStereoSeparation = separation;

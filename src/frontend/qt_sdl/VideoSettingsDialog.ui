@@ -107,7 +107,7 @@
         </item>
        </layout>
       </item>
-      <item row="10" column="0">
+      <item row="12" column="0">
        <widget class="QCheckBox" name="cbHQ4x">
         <property name="toolTip">
          <string>Smooth the entire displayed image, including 3D, using the Android-style HQ4x filter.</string>
@@ -159,6 +159,43 @@
           </property>
           <property name="value">
            <number>24</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="10" column="0">
+       <widget class="QCheckBox" name="cbStereoKeep2DInFront">
+        <property name="toolTip">
+         <string>Push the 3D scene back when it comes close to the camera (for example, zoomed-in dialogue) so that flat 2D elements like text boxes stay in front of it.</string>
+        </property>
+        <property name="text">
+         <string>Keep 2D in front of 3D</string>
+        </property>
+       </widget>
+      </item>
+      <item row="11" column="0">
+       <layout class="QHBoxLayout" name="stereoEdgeCropLayout">
+        <item>
+         <widget class="QLabel" name="labelStereoEdgeCrop">
+          <property name="text">
+           <string>Stereo edge crop:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="sbStereoEdgeCrop">
+          <property name="toolTip">
+           <string>Black out this many native DS pixel columns on both side edges of each eye view to hide areas the stereo shift leaves without scene content.</string>
+          </property>
+          <property name="minimum">
+           <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>64</number>
+          </property>
+          <property name="value">
+           <number>0</number>
           </property>
          </widget>
         </item>

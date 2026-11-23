@@ -46,7 +46,7 @@ public:
     void Reset() override;
 
     void SetRenderSettings(int scale, bool highResolutionCoordinates);
-    void SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget);
+    void SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget, bool keepFlatInFront);
 
     void RenderFrame() override;
     void RestartFrame() override;
@@ -228,6 +228,8 @@ private:
     int StereoSeparation = 16;
     bool StereoAdaptive = false;
     int StereoAdaptiveTarget = 24;
+    bool StereoKeepFlatInFront = false;
+    double StereoConvergence = 0.0;
     double EffectiveStereoSeparation = 16.0;
     AdaptiveStereo StereoAdapter;
 

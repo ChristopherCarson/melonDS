@@ -54,6 +54,8 @@ void VideoSettingsDialog::setEnabled()
     ui->sbStereoSeparation->setEnabled(stereoEnabled);
     ui->cbStereoAdaptive->setEnabled(stereoEnabled);
     ui->sbStereoAdaptiveTarget->setEnabled(stereoEnabled && ui->cbStereoAdaptive->isChecked());
+    ui->sbStereoEdgeCrop->setEnabled(stereoEnabled);
+    ui->cbStereoKeep2DInFront->setEnabled(stereoEnabled);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
     ui->cbHQ4x->setEnabled(renderer == renderer3D_OpenGLCompute);
 }
@@ -79,6 +81,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldStereoSeparation = cfg.GetInt("3D.GL.StereoSeparation");
     oldStereoAdaptive = cfg.GetBool("3D.GL.StereoAdaptive");
     oldStereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget");
+    oldStereoEdgeCrop = cfg.GetInt("3D.GL.StereoEdgeCrop");
+    oldStereoKeep2DInFront = cfg.GetBool("3D.GL.StereoKeep2DInFront");
     oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
     oldHQ4x = cfg.GetBool("3D.GL.HQ4x");
 
@@ -119,6 +123,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->sbStereoSeparation->setValue(oldStereoSeparation);
     ui->cbStereoAdaptive->setChecked(oldStereoAdaptive);
     ui->sbStereoAdaptiveTarget->setValue(oldStereoAdaptiveTarget);
+    ui->sbStereoEdgeCrop->setValue(oldStereoEdgeCrop);
+    ui->cbStereoKeep2DInFront->setChecked(oldStereoKeep2DInFront);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
     ui->cbHQ4x->setChecked(oldHQ4x);
 
@@ -165,6 +171,8 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     cfg.SetInt("3D.GL.StereoSeparation", oldStereoSeparation);
     cfg.SetBool("3D.GL.StereoAdaptive", oldStereoAdaptive);
     cfg.SetInt("3D.GL.StereoAdaptiveTarget", oldStereoAdaptiveTarget);
+    cfg.SetInt("3D.GL.StereoEdgeCrop", oldStereoEdgeCrop);
+    cfg.SetBool("3D.GL.StereoKeep2DInFront", oldStereoKeep2DInFront);
     cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
     cfg.SetBool("3D.GL.HQ4x", oldHQ4x);
 
@@ -278,6 +286,20 @@ void VideoSettingsDialog::on_sbStereoAdaptiveTarget_valueChanged(int value)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetInt("3D.GL.StereoAdaptiveTarget", value);
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbStereoKeep2DInFront_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.StereoKeep2DInFront", state != 0);
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_sbStereoEdgeCrop_valueChanged(int value)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.GL.StereoEdgeCrop", value);
     emit updateVideoSettings(false);
 }
 

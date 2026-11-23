@@ -895,7 +895,8 @@ void EmuThread::updateRenderer()
         .StereoSeparation = cfg.GetInt("3D.GL.StereoSeparation"),
         .StereoTop = cfg.GetBool("3D.GL.StereoTop"),
         .StereoAdaptive = cfg.GetBool("3D.GL.StereoAdaptive"),
-        .StereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget")
+        .StereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget"),
+        .StereoKeepFlatInFront = cfg.GetBool("3D.GL.StereoKeep2DInFront")
     };
 
     nds->GetRenderer().SetRenderSettings(settings);

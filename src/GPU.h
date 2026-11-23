@@ -835,6 +835,8 @@ struct RendererSettings
     bool StereoTop = false;
     bool StereoAdaptive = false;
     int StereoAdaptiveTarget = 24;
+    // shift the stereo convergence so near 3D stays behind the flat 2D layers
+    bool StereoKeepFlatInFront = false;
 };
 
 class Renderer

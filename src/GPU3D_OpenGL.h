@@ -38,7 +38,7 @@ public:
     void Reset() override;
 
     void SetRenderSettings(int scale, bool betterpolygons) noexcept;
-    void SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget) noexcept;
+    void SetStereo(bool enabled, int separation, bool adaptive, int adaptiveTarget, bool keepFlatInFront) noexcept;
     void SetBetterPolygons(bool betterpolygons) noexcept;
     void SetScaleFactor(int scale) noexcept;
     [[nodiscard]] bool GetBetterPolygons() const noexcept { return BetterPolygons; }
@@ -105,6 +105,7 @@ private:
     GLuint RenderShader[2] {};
     GLint RenderModeULoc = 0;
     GLint StereoShiftULoc = 0;
+    GLint StereoConvergenceULoc = 0;
     GLuint CurShaderID = -1;
 
     GLuint FinalPassEdgeShader {};
@@ -167,6 +168,8 @@ private:
     int StereoSeparation = 16;
     bool StereoAdaptive = false;
     int StereoAdaptiveTarget = 24;
+    bool StereoKeepFlatInFront = false;
+    double StereoConvergence = 0.0;
     double EffectiveStereoSeparation = 16.0;
     AdaptiveStereo StereoAdapter;
     float StereoShift {};

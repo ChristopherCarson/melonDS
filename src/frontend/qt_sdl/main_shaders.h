@@ -49,6 +49,7 @@ const char* kScreenFS = R"(#version 140
 
 uniform sampler2DArray ScreenTex;
 uniform bool uHQ4x;
+uniform vec2 uCrop; // left/right edge crop in texcoord units
 
 smooth in vec3 fTexcoord;
 
@@ -107,6 +108,11 @@ vec3 HQ4x()
 
 void main()
 {
+    if (fTexcoord.x < uCrop.x || fTexcoord.x > 1.0 - uCrop.y)
+    {
+        oColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
     oColor = vec4(uHQ4x ? HQ4x() : texture(ScreenTex, fTexcoord).rgb, 1.0);
 }
 )";

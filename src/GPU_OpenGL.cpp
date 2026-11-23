@@ -342,14 +342,16 @@ void GLRenderer::SetRenderSettings(RendererSettings& settings)
     {
         auto rend3d = dynamic_cast<ComputeRenderer3D *>(Rend3D.get());
         rend3d->SetStereo(Stereo || StereoTop, settings.StereoSeparation,
-                          settings.StereoAdaptive, settings.StereoAdaptiveTarget);
+                          settings.StereoAdaptive, settings.StereoAdaptiveTarget,
+                          settings.StereoKeepFlatInFront);
         rend3d->SetRenderSettings(settings.ScaleFactor, settings.HiresCoordinates);
     }
     else
     {
         auto rend3d = dynamic_cast<GLRenderer3D *>(Rend3D.get());
         rend3d->SetStereo(Stereo || StereoTop, settings.StereoSeparation,
-                          settings.StereoAdaptive, settings.StereoAdaptiveTarget);
+                          settings.StereoAdaptive, settings.StereoAdaptiveTarget,
+                          settings.StereoKeepFlatInFront);
         rend3d->SetRenderSettings(settings.ScaleFactor, settings.BetterPolygons);
     }
 }

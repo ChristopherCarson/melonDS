@@ -53,6 +53,23 @@ int main()
     adaptive.Reset();
     assert(adaptive.Update(withSpeck, 2, 24, 24) == 1.0);
 
+    // A scene close to the camera converges at its depth, leaving no disparity.
+    for (auto& vertex : sceneVertices) vertex.Position[3] = 32768;
+    adaptive.Reset();
+    assert(adaptive.Update(polygons, 1, 24, 24, false, true) == 1.0);
+    assert(std::fabs(adaptive.Convergence() - 0.5) < 0.00001);
+    for (int i = 0; i < 9; i++) adaptive.Update(polygons, 1, 24, 24, true, true);
+    assert(adaptive.Convergence() == 1.0);
+    assert(adaptive.Update(polygons, 1, 24, 24, true, true) == 1.0);
+    assert(ComputeStereoShiftX(32768, 6, 32, 1, adaptive.Convergence()) == 0);
+    // Content behind the screen plane needs no convergence shift.
+    for (auto& vertex : sceneVertices) vertex.Position[3] = 131072;
+    adaptive.Reset();
+    adaptive.Update(polygons, 1, 24, 24, true, true);
+    assert(adaptive.Convergence() == 0.0);
+    adaptive.Update(polygons, 1, 24, 24, true, false);
+    assert(adaptive.Convergence() == 0.0);
+
     ComputeSpanVertices vertices {};
     vertices[0] = {-100, 0, 100, 100, {0, 10, 20}, {0, 10}};
     vertices[1] = {100, 0, 300, 200, {90, 100, 110}, {90, 100}};
