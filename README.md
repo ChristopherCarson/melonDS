@@ -89,6 +89,10 @@ that use display capture, or that just swapped screens, briefly render all three
 which can be substantially slower, particularly at high internal resolutions. Enabling
 the top pair also uses additional graphics memory.
 
+Both OpenGL renderers share a streamlined 2D compositor that selects the top two
+visible layers in one background pass and reuses scanline/configuration uploads across
+stereo views. Layer priority, blending and emulated scanline timing are unchanged.
+
 With OpenGL (Compute shader), Video settings also offers an optional upscaling filter for
 pixel art: the Android-style HQ4x, or xBRZ, which keeps edges sharper. It smooths the
 displayed image without reducing the internal rendering resolution. By default

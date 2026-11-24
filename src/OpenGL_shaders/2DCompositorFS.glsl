@@ -301,29 +301,51 @@ vec4 CompositeLayers()
     if (inside_win0)
         winsel = winregs >> 24;
 
-    for (int prio = 3; prio >= 0; prio--)
+    int prio1 = 4;
+    int prio2 = 4;
+    for (int bg = 3; bg >= 0; bg--)
     {
-        for (int bg = 3; bg >= 0; bg--)
-        {
-            if ((uBGPrio[bg] == prio) && (layercol[bg].a > 0) && ((winsel & (1u << bg)) != 0u))
-            {
-                col2 = col1;
-                mask2 = mask1 << 8;
-                col1 = ivec4(layercol[bg] * 255.0) >> ivec4(2,2,2,3);
-                mask1 = (1 << bg);
-                specialcase = (bg == 0) && uEnable3D;
-                top3D = specialcase;
-            }
-        }
+        int prio = uBGPrio[bg];
+        if ((prio < 0) || (layercol[bg].a <= 0) || ((winsel & (1u << bg)) == 0u))
+            continue;
 
-        if (uEnableOBJ && (objflags.a == prio) && (layercol[4].a > 0) && ((winsel & (1u << 4)) != 0u))
+        ivec4 color = ivec4(layercol[bg] * 255.0) >> ivec4(2,2,2,3);
+        // Lower-numbered backgrounds win ties; only the top two layers blend.
+        if (prio <= prio1)
         {
             col2 = col1;
             mask2 = mask1 << 8;
-            col1 = ivec4(layercol[4] * 255.0) >> ivec4(2,2,2,3);
+            prio2 = prio1;
+            col1 = color;
+            mask1 = (1 << bg);
+            prio1 = prio;
+            specialcase = (bg == 0) && uEnable3D;
+            top3D = specialcase;
+        }
+        else if (prio <= prio2)
+        {
+            col2 = color;
+            mask2 = (1 << (bg + 8));
+            prio2 = prio;
+        }
+    }
+
+    if (uEnableOBJ && (layercol[4].a > 0) && ((winsel & (1u << 4)) != 0u))
+    {
+        ivec4 color = ivec4(layercol[4] * 255.0) >> ivec4(2,2,2,3);
+        if (objflags.a <= prio1)
+        {
+            col2 = col1;
+            mask2 = mask1 << 8;
+            col1 = color;
             mask1 = (1 << 4);
             specialcase = (objflags.r != 0);
             top3D = false;
+        }
+        else if (objflags.a <= prio2)
+        {
+            col2 = color;
+            mask2 = (1 << 12);
         }
     }
 

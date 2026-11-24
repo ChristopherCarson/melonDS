@@ -1792,6 +1792,16 @@ void GLRenderer2D::RenderSprites(bool window, int ystart, int yend)
 
 void GLRenderer2D::RenderScreen(int ystart, int yend)
 {
+    if (!ForcedBlank && UnitEnabled)
+    {
+        glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
+        glBufferSubData(GL_UNIFORM_BUFFER,
+                        ystart * sizeof(sScanlineConfig::sScanline),
+                        (yend - ystart) * sizeof(sScanlineConfig::sScanline),
+                        &ScanlineConfig.uScanline[ystart]);
+        UpdateCompositorConfig();
+    }
+
     int views = Stereo ? Parent.StereoViews() : GLRenderer::StereoView_Center;
     if (views & GLRenderer::StereoView_Center)
         RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D);
@@ -1841,14 +1851,6 @@ void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, 
     glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 22, ScanlineConfigUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 23, CompositorConfigUBO);
-
-    glBindBuffer(GL_UNIFORM_BUFFER, ScanlineConfigUBO);
-    glBufferSubData(GL_UNIFORM_BUFFER,
-                    ystart * sizeof(sScanlineConfig::sScanline),
-                    (yend - ystart) * sizeof(sScanlineConfig::sScanline),
-                    &ScanlineConfig.uScanline[ystart]);
-
-    UpdateCompositorConfig();
 
     for (int i = 0; i < 4; i++)
     {
