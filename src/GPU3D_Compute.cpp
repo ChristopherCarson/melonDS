@@ -698,6 +698,7 @@ void ComputeRenderer3D::RenderFrame()
         StereoDirty = true;
     }
     int views = Stereo ? Parent.StereoViews() : GLRenderer::StereoView_Center;
+    Parent.UpdateStereoCrop(separation, StereoConvergence, views);
     if (views != LastStereoViews)
     {
         LastStereoViews = views;

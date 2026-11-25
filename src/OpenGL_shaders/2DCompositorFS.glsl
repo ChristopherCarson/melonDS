@@ -50,6 +50,7 @@ layout(std140) uniform ubCompositorConfig
 };
 
 uniform int uScaleFactor;
+uniform float uStereoInset;
 
 smooth in vec4 fTexcoord;
 
@@ -240,41 +241,8 @@ void CalcSpriteMosaic(in ivec2 coord, out ivec4 objflags, out vec4 objcolor)
     }
 }
 
-vec4 CompositeLayers()
+uint WindowSelection(int xpos, int line, ivec4 objflags)
 {
-    ivec2 coord = ivec2(fTexcoord.zw);
-    vec2 bgcoord = vec2(fTexcoord.x, fract(fTexcoord.y));
-    int xpos = int(fTexcoord.x);
-    int line = int(fTexcoord.y);
-
-    if (uScanline[line].MosaicSize.x > 0)
-        MosaicX = texelFetch(MosaicTex, ivec2(bgcoord.x, uScanline[line].MosaicSize.x), 0).r;
-
-    ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
-    int mask1 = 0x20;
-    ivec4 col2 = ivec4(0);
-    int mask2 = 0;
-    bool specialcase = false;
-    bool top3D = false;
-
-    vec4 layercol[6];
-    layercol[0] = BG0CalcAndFetch(bgcoord, line);
-    layercol[1] = BG1CalcAndFetch(bgcoord, line);
-    layercol[2] = BG2CalcAndFetch(bgcoord, line);
-    layercol[3] = BG3CalcAndFetch(bgcoord, line);
-
-    ivec4 objflags;
-    if (uScanline[line].MosaicSize.z > 0)
-    {
-        CalcSpriteMosaic(ivec2(fTexcoord.xy), objflags, layercol[4]);
-    }
-    else
-    {
-        layercol[4] = texelFetch(OBJLayerTex, ivec3(coord, 0), 0);
-        layercol[5] = texelFetch(OBJLayerTex, ivec3(coord, 1), 0);
-        objflags = ivec4(layercol[5] * 255.0);
-    }
-
     int winmask = uScanline[line].WinMask;
     bool inside_win0, inside_win1;
 
@@ -300,13 +268,73 @@ vec4 CompositeLayers()
         winsel = winregs >> 16;
     if (inside_win0)
         winsel = winregs >> 24;
+    return winsel;
+}
+
+vec4 CompositeLayers()
+{
+    int line = int(fTexcoord.y);
+    vec2 originalBGCoord = vec2(fTexcoord.x, fract(fTexcoord.y));
+    vec2 bgcoord = originalBGCoord;
+    if (uStereoInset > 0.0)
+        bgcoord.x = clamp((fTexcoord.x - uStereoInset) * 256.0 / (256.0 - 2.0 * uStereoInset), 0.0, 255.999);
+    ivec2 coord = uStereoInset > 0.0 ? ivec2(bgcoord.x * uScaleFactor, fTexcoord.w) : ivec2(fTexcoord.zw);
+
+    ivec4 col1 = ivec4(ConvertColor(uScanline[line].BackColor), 0x20);
+    int mask1 = 0x20;
+    ivec4 col2 = ivec4(0);
+    int mask2 = 0;
+    bool specialcase = false;
+    bool top3D = false;
+
+    vec4 layercol[6];
+    if (uEnable3D && uStereoInset > 0.0)
+    {
+        if (uScanline[line].MosaicSize.x > 0)
+            MosaicX = texelFetch(MosaicTex, ivec2(originalBGCoord.x, uScanline[line].MosaicSize.x), 0).r;
+        layercol[0] = BG0CalcAndFetch(originalBGCoord, line);
+    }
+
+    if (uScanline[line].MosaicSize.x > 0)
+        MosaicX = texelFetch(MosaicTex, ivec2(bgcoord.x, uScanline[line].MosaicSize.x), 0).r;
+    if (!uEnable3D || uStereoInset <= 0.0)
+        layercol[0] = BG0CalcAndFetch(bgcoord, line);
+    layercol[1] = BG1CalcAndFetch(bgcoord, line);
+    layercol[2] = BG2CalcAndFetch(bgcoord, line);
+    layercol[3] = BG3CalcAndFetch(bgcoord, line);
+
+    ivec4 objflags;
+    if (uScanline[line].MosaicSize.z > 0)
+        CalcSpriteMosaic(ivec2(bgcoord.x, fTexcoord.y), objflags, layercol[4]);
+    else
+    {
+        layercol[4] = texelFetch(OBJLayerTex, ivec3(coord, 0), 0);
+        layercol[5] = texelFetch(OBJLayerTex, ivec3(coord, 1), 0);
+        objflags = ivec4(layercol[5] * 255.0);
+    }
+
+    uint winsel = WindowSelection(int(bgcoord.x), line, objflags);
+    uint winsel3D = winsel;
+    if (uStereoInset > 0.0 && uEnable3D)
+    {
+        ivec4 originalFlags;
+        if (uScanline[line].MosaicSize.z > 0)
+        {
+            vec4 originalColor;
+            CalcSpriteMosaic(ivec2(fTexcoord.xy), originalFlags, originalColor);
+        }
+        else
+            originalFlags = ivec4(texelFetch(OBJLayerTex, ivec3(ivec2(fTexcoord.zw), 1), 0) * 255.0);
+        winsel3D = WindowSelection(int(fTexcoord.x), line, originalFlags);
+    }
 
     int prio1 = 4;
     int prio2 = 4;
     for (int bg = 3; bg >= 0; bg--)
     {
         int prio = uBGPrio[bg];
-        if ((prio < 0) || (layercol[bg].a <= 0) || ((winsel & (1u << bg)) == 0u))
+        uint bgwindow = (bg == 0 && uEnable3D) ? winsel3D : winsel;
+        if ((prio < 0) || (layercol[bg].a <= 0) || ((bgwindow & (1u << bg)) == 0u))
             continue;
 
         ivec4 color = ivec4(layercol[bg] * 255.0) >> ivec4(2,2,2,3);
@@ -376,7 +404,7 @@ vec4 CompositeLayers()
             evb = 16 - eva;
         }
     }
-    else if (((uBlendCnt & mask1) != 0) && ((winsel & (1u << 5)) != 0u))
+    else if (((uBlendCnt & mask1) != 0) && (((top3D ? winsel3D : winsel) & (1u << 5)) != 0u))
     {
         effect = uBlendEffect;
         if (effect == 1)

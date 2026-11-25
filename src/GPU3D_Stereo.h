@@ -34,6 +34,48 @@ inline double StereoDepthTerm(s32 clipW)
     return clipW > 0 ? 65536.0 / clipW - 1.0 : 0.0;
 }
 
+class StereoEdgeCrop
+{
+public:
+    void Reset() { crop = 0.0; }
+
+    int Update(const Polygon* const* polygons, u32 count, double separation, double convergence)
+    {
+        double widest = 0.0;
+        for (u32 i = 0; i < count; i++)
+        {
+            const Polygon& polygon = *polygons[i];
+            if (polygon.Degenerate || polygon.IsShadowMask || polygon.NumVertices < 3)
+                continue;
+
+            for (u32 j = 0; j < polygon.NumVertices; j++)
+            {
+                const Vertex& vertex = *polygon.Vertices[j];
+                int x = vertex.FinalPosition[0];
+                if (vertex.Position[3] <= 0 || x < 0 || x > 256 || (x > 1 && x < 255))
+                    continue;
+
+                double shift = 1.5 * separation * std::abs(StereoDepthTerm(vertex.Position[3]) - convergence);
+                widest = std::max(widest, shift);
+            }
+        }
+
+        // One extra native pixel covers edge rounding and display filtering.
+        double desired = widest > 0.0 ? std::min(64.0, std::ceil(widest) + 1.0) : 0.0;
+        if (desired >= crop)
+            crop = desired;
+        else
+        {
+            crop += (desired - crop) * 0.1;
+            if (crop - desired < 0.01) crop = desired;
+        }
+        return static_cast<int>(std::ceil(crop));
+    }
+
+private:
+    double crop = 0.0;
+};
+
 class AdaptiveStereo
 {
 public:

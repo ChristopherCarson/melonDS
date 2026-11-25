@@ -105,6 +105,8 @@ DefaultList<bool> DefaultBools =
     {"3D.Soft.Threaded", true},
     {"3D.GL.HiresCoordinates", true},
     {"3D.GL.StereoKeep2DInFront", true},
+    {"3D.GL.StereoAutoCrop", false},
+    {"3D.GL.StereoInset2D", false},
     {"3D.GL.HQ4x2DOnly", true},
     {"LimitFPS", true},
     {"Instance*.Window*.ShowOSD", true},

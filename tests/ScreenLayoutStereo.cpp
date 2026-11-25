@@ -49,6 +49,14 @@ int main()
     assert(layout.GetTouchCoords(x, y, false) && x == 128 && y == 96);
     x = 1440; y = 540;
     assert(layout.GetTouchCoords(x, y, false) && x == 128 && y == 96);
+    x = 210; y = 540;
+    assert(layout.GetTouchCoords(x, y, false, 16) && x == 18 && y == 96);
+    x = 1170; y = 540;
+    assert(layout.GetTouchCoords(x, y, false, 16) && x == 18 && y == 96);
+    x = 130; y = 540;
+    assert(!layout.GetTouchCoords(x, y, false, 16));
+    x = 130; y = 540;
+    assert(layout.GetTouchCoords(x, y, true, 16) && x == 0 && y == 96);
     x = 0; y = 1200;
     assert(layout.GetTouchCoords(x, y, true) && x == 0 && y == 191);
 
@@ -94,6 +102,8 @@ int main()
     assert(matrices[10] == 1080.0f && matrices[12] == 2.8125f && matrices[16] == 600.0f);
     x = 960; y = 810;
     assert(layout.GetTouchCoords(x, y, false) && x == 128 && y == 96);
+    x = 690; y = 810;
+    assert(layout.GetTouchCoords(x, y, false, 16) && x == 32 && y == 96);
     x = 480; y = 810;
     assert(!layout.GetTouchCoords(x, y, false));
     x = 0; y = 1200;

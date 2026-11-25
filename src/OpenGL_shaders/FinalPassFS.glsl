@@ -3,6 +3,7 @@
 uniform sampler2D MainInputTexA;
 uniform sampler2D MainInputTexB;
 uniform sampler2DArray AuxInputTex;
+uniform float uStereoInset;
 
 layout(std140) uniform ubFinalPassConfig
 {
@@ -41,8 +42,11 @@ ivec3 MasterBrightness(ivec3 color, int brightmode, int evy)
 
 void main()
 {
+    float insetX = fTexcoord.x;
+    if (uStereoInset > 0.0)
+        insetX = clamp((fTexcoord.x * 256.0 - uStereoInset) / (256.0 - 2.0 * uStereoInset), 0.0, 1.0);
     ivec4 col_main = ivec4(texture(MainInputTexA, fTexcoord.xy, 0) * 255.0) >> 2;
-    ivec4 col_sub = ivec4(texture(MainInputTexB, fTexcoord.xy, 0) * 255.0) >> 2;
+    ivec4 col_sub = ivec4(texture(MainInputTexB, vec2(insetX, fTexcoord.y), 0) * 255.0) >> 2;
 
     ivec3 output_main, output_sub;
 
@@ -59,7 +63,7 @@ void main()
     else
     {
         // VRAM display / mainmem FIFO
-        output_main = ivec3(texture(AuxInputTex, vec3(fTexcoord.xz, uAuxLayer)).rgb * uAuxColorFactor);
+        output_main = ivec3(texture(AuxInputTex, vec3(insetX, fTexcoord.z, uAuxLayer)).rgb * uAuxColorFactor);
     }
 
     if (uDispModeB == 0)

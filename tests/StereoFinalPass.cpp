@@ -139,6 +139,45 @@ void main()
             }
         }
     }
+
+    uint8_t gradient[256 * 4];
+    for (int x = 0; x < 256; x++)
+    {
+        gradient[x * 4] = x;
+        gradient[x * 4 + 1] = 0;
+        gradient[x * 4 + 2] = 0;
+        gradient[x * 4 + 3] = 255;
+    }
+    for (int i : {0, 2})
+    {
+        gl->glBindTexture(GL_TEXTURE_2D, inputs[i]);
+        gl->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, gradient);
+    }
+    gl->glBindTexture(GL_TEXTURE_2D_ARRAY, output);
+    gl->glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, 256, 1, 6, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    gl->glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, output, 0, 4);
+    gl->glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, output, 0, 2);
+    gl->glViewport(0, 0, 256, 1);
+    for (auto& line : config.swap) line = 0;
+    gl->glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    gl->glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(config), &config);
+    gl->glActiveTexture(GL_TEXTURE0);
+    gl->glBindTexture(GL_TEXTURE_2D, inputs[0]);
+    gl->glActiveTexture(GL_TEXTURE1);
+    gl->glBindTexture(GL_TEXTURE_2D, inputs[2]);
+    program.setUniformValue("uStereoInset", 16.0f);
+    gl->glDrawArrays(GL_TRIANGLES, 0, 3);
+    for (int x : {16, 32, 128, 239})
+    {
+        uint8_t pixel[4] {};
+        int sourceX = static_cast<int>((x + 0.5f - 16.0f) * 256.0f / 224.0f);
+        gl->glReadBuffer(GL_COLOR_ATTACHMENT0);
+        gl->glReadPixels(x, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+        assert(pixel[0] == (sourceX & ~3));
+        gl->glReadBuffer(GL_COLOR_ATTACHMENT1);
+        gl->glReadPixels(x, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+        assert(pixel[0] == (x & ~3));
+    }
     gl->glDeleteBuffers(1, &ubo);
     gl->glDeleteVertexArrays(1, &vao);
     gl->glDeleteFramebuffers(1, &framebuffer);

@@ -90,7 +90,7 @@ public:
 
     // de-transform the provided host display coordinates to get coordinates
     // on the bottom screen
-    bool GetTouchCoords(int& x, int& y, bool clamp);
+    bool GetTouchCoords(int& x, int& y, bool clamp, int stereoInset = 0);
 
 private:
     float TopScreenMtx[6];

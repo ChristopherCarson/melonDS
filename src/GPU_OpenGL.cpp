@@ -205,6 +205,7 @@ bool GLRenderer::Init()
     glUniform1i(uniloc, 1);
     uniloc = glGetUniformLocation(FPShader, "AuxInputTex");
     glUniform1i(uniloc, 2);
+    FPInsetULoc = glGetUniformLocation(FPShader, "uStereoInset");
 
     uniloc = glGetUniformBlockIndex(FPShader, "ubFinalPassConfig");
     glUniformBlockBinding(FPShader, uniloc, 30);
@@ -301,6 +302,10 @@ void GLRenderer::Reset()
     LastScreenSwap = GPU.ScreenSwap;
     CaptureFallback.Reset(GPU.ScreenSwap);
     CaptureSeenThisFrame = false;
+    AutoCrop.Reset();
+    CurrentStereoCrop = 0;
+    StereoCropBuffers[0] = StereoCropBuffers[1] = 0;
+    StereoInsetBuffers[0] = StereoInsetBuffers[1] = 0;
 
     Rend2D_A->Reset();
     Rend2D_B->Reset();
@@ -332,6 +337,15 @@ void GLRenderer::SetRenderSettings(RendererSettings& settings)
     bool scaleChanged = ScaleFactor != settings.ScaleFactor;
     Stereo = stereo;
     StereoTop = stereoTop;
+    ManualStereoCrop = settings.StereoEdgeCrop;
+    StereoInset2D = settings.StereoInset2D;
+    if (StereoAutoCrop != settings.StereoAutoCrop)
+    {
+        StereoAutoCrop = settings.StereoAutoCrop;
+        AutoCrop.Reset();
+        CurrentStereoCrop = 0;
+        StereoCropBuffers[0] = StereoCropBuffers[1] = 0;
+    }
     StereoHoldFrames = StereoHoldDuration;
     SetScaleFactor(settings.ScaleFactor);
     if (stereoChanged && !scaleChanged)
@@ -435,6 +449,21 @@ int GLRenderer::StereoViews() const
     // the main engine (with 3D) is on the top screen when ScreenSwap is set
     bool mainOnStereoScreen = GPU.ScreenSwap ? StereoTop : Stereo;
     return mainOnStereoScreen ? StereoView_Eyes : StereoView_Center;
+}
+
+void GLRenderer::UpdateStereoCrop(double separation, double convergence, int views)
+{
+    if (!StereoAutoCrop) return;
+    if (views & StereoView_Eyes)
+        CurrentStereoCrop = AutoCrop.Update(GPU.GPU3D.RenderPolygonRAM.data(),
+                                            GPU.GPU3D.RenderNumPolygons, separation, convergence);
+    else
+        CurrentStereoCrop = AutoCrop.Update(nullptr, 0, 0.0, 0.0);
+}
+
+int GLRenderer::Stereo2DInset() const
+{
+    return StereoInset2D ? std::max(ManualStereoCrop, CurrentStereoCrop) : 0;
 }
 
 void GLRenderer::DrawScanline(u32 line)
@@ -626,6 +655,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
     else
     {
         glUseProgram(FPShader);
+        glUniform1f(FPInsetULoc, 0.0f);
 
         FinalPassConfig.uScaleFactor = ScaleFactor;
         FinalPassConfig.uDispModeA = (DispCntA >> 16) & 0x3;
@@ -680,6 +710,8 @@ void GLRenderer::RenderScreen(int ystart, int yend)
 
         if (Stereo || StereoTop)
         {
+            int inset = Stereo2DInset();
+            glUniform1f(FPInsetULoc, static_cast<float>(inset));
             const GLenum stereoBuffers[] = {
                 StereoTop ? GLenum(GL_COLOR_ATTACHMENT0) : GLenum(GL_NONE),
                 Stereo ? GLenum(GL_COLOR_ATTACHMENT1) : GLenum(GL_NONE)
@@ -693,7 +725,7 @@ void GLRenderer::RenderScreen(int ystart, int yend)
                 if (Stereo)
                     glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FPOutputTex[backbuf], 0, eye + 2);
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, CaptureFallback.Active() ? OutputTex2D[0] : StereoTex2D[eye]);
+                glBindTexture(GL_TEXTURE_2D, CaptureFallback.Active() && !inset ? OutputTex2D[0] : StereoTex2D[eye]);
                 glDrawArrays(GL_TRIANGLES, 0, 2*3);
             }
             if (StereoTop)
@@ -713,6 +745,9 @@ void GLRenderer::VBlank()
     Rend2D_B->VBlank();
 
     RenderScreen(LastLine, 192);
+    // The next 3D render starts later in this frame, after this output is complete.
+    StereoCropBuffers[BackBuffer] = CurrentStereoCrop;
+    StereoInsetBuffers[BackBuffer] = Stereo2DInset();
 
     if (GPU.CaptureEnable)
         DoCapture(LastCapLine, 192);

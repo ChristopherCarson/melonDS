@@ -70,6 +70,35 @@ int main()
     adaptive.Update(polygons, 1, 24, 24, true, false);
     assert(adaptive.Convergence() == 0.0);
 
+    StereoEdgeCrop crop;
+    for (auto& vertex : sceneVertices)
+    {
+        vertex.FinalPosition[0] = 128;
+        vertex.Position[3] = 32768;
+    }
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    sceneVertices[0].FinalPosition[0] = 0;
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 16);
+    // Both depth directions and both original edges use the same common crop.
+    sceneVertices[0].FinalPosition[0] = 255;
+    sceneVertices[0].Position[3] = 131072;
+    assert(crop.Update(polygons, 1, 40.0, 0.0) == 31);
+    assert(crop.Update(polygons, 1, 40.0, -0.5) == 28);
+    assert(crop.Update(polygons, 1, 400.0, 0.0) == 64);
+    assert(crop.Update(nullptr, 0, 0.0, 0.0) == 58);
+    assert(crop.Update(polygons, 1, 400.0, 0.0) == 64);
+    crop.Reset();
+    assert(crop.Update(polygons, 1, 40.0, -0.5) == 0);
+    sceneVertices[0].FinalPosition[0] = 300;
+    assert(crop.Update(polygons, 1, 40.0, 0.0) == 0);
+    sceneVertices[0].FinalPosition[0] = 0;
+    sceneVertices[0].Position[3] = 0;
+    assert(crop.Update(polygons, 1, 40.0, 0.0) == 0);
+    sceneVertices[0].Position[3] = 131072;
+    scene.IsShadowMask = true;
+    assert(crop.Update(polygons, 1, 40.0, 0.0) == 0);
+    scene.IsShadowMask = false;
+
     ComputeSpanVertices vertices {};
     vertices[0] = {-100, 0, 100, 100, {0, 10, 20}, {0, 10}};
     vertices[1] = {100, 0, 300, 200, {90, 100, 110}, {90, 100}};

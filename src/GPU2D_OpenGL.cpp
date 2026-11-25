@@ -154,6 +154,7 @@ bool GLRenderer2D::InitShaders()
     glUniformBlockBinding(CompositorShader, uniloc, 23);
 
     CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
+    CompositorInsetULoc = glGetUniformLocation(CompositorShader, "uStereoInset");
 
     // generate mosaic lookup texture
 
@@ -191,6 +192,7 @@ bool GLRenderer2D::InitShaders(GLRenderer2D& other)
     LayerPreCurBGULoc = other.LayerPreCurBGULoc;
     SpriteRenderTransULoc = other.SpriteRenderTransULoc;
     CompositorScaleULoc = other.CompositorScaleULoc;
+    CompositorInsetULoc = other.CompositorInsetULoc;
 
     MosaicTex = other.MosaicTex;
 
@@ -1803,16 +1805,20 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
     }
 
     int views = Stereo ? Parent.StereoViews() : GLRenderer::StereoView_Center;
+    int inset = Stereo ? Parent.Stereo2DInset() : 0;
     if (views & GLRenderer::StereoView_Center)
-        RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D);
-    if (views & GLRenderer::StereoView_Eyes)
+        RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D, 0);
+    if ((views & GLRenderer::StereoView_Eyes) || inset)
     {
         for (int eye = 0; eye < 2; eye++)
-            RenderScreenOutput(ystart, yend, StereoOutputFB[eye], Parent.StereoTex3D[eye]);
+        {
+            GLuint tex3d = (views & GLRenderer::StereoView_Eyes) ? Parent.StereoTex3D[eye] : Parent.OutputTex3D;
+            RenderScreenOutput(ystart, yend, StereoOutputFB[eye], tex3d, inset);
+        }
     }
 }
 
-void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d)
+void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d, int inset)
 {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
@@ -1847,6 +1853,7 @@ void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, 
     }
 
     glUseProgram(CompositorShader);
+    glUniform1f(CompositorInsetULoc, static_cast<float>(inset));
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 22, ScanlineConfigUBO);

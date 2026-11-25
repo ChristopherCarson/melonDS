@@ -526,8 +526,20 @@ int ScreenLayout::GetScreenTransforms(float* out, int* kind)
     return num;
 }
 
-bool ScreenLayout::GetTouchCoords(int& x, int& y, bool clamp)
+bool ScreenLayout::GetTouchCoords(int& x, int& y, bool clamp, int stereoInset)
 {
+    auto mapX = [this, clamp, stereoInset](float vx, int& out)
+    {
+        int inset = StereoEnable ? std::clamp(stereoInset, 0, 64) : 0;
+        if (inset)
+        {
+            if (!clamp && (vx < inset || vx >= 256 - inset)) return false;
+            vx = (vx - inset) * 256.0f / (256 - 2 * inset);
+        }
+        out = std::clamp(static_cast<int>(vx), 0, 255);
+        return true;
+    };
+
     if (HybEnable && HybScreen == 1)
     {
         float vx = x;
@@ -542,14 +554,14 @@ bool ScreenLayout::GetTouchCoords(int& x, int& y, bool clamp)
         {
             if (HybPrevTouchScreen == 1)
             {
-                x = std::clamp((int)vx, 0, 255);
+                mapX(vx, x);
                 y = std::clamp((int)vy, 0, 191);
 
                 return true;
             }
             if (HybPrevTouchScreen == 2)
             {
-                x = std::clamp((int)hvx, 0, 255);
+                mapX(hvx, x);
                 y = std::clamp((int)hvy, 0, 191);
 
                 return true;
@@ -559,18 +571,16 @@ bool ScreenLayout::GetTouchCoords(int& x, int& y, bool clamp)
         {
             if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
             {
+                if (!mapX(vx, x)) return false;
                 HybPrevTouchScreen = 1;
-
-                x = (int)vx;
                 y = (int)vy;
 
                 return true;
             }
             if (hvx >= 0 && hvx < 256 && hvy >= 0 && hvy < 192)
             {
+                if (!mapX(hvx, x)) return false;
                 HybPrevTouchScreen = 2;
-
-                x = (int)hvx;
                 y = (int)hvy;
 
                 return true;
@@ -586,7 +596,7 @@ bool ScreenLayout::GetTouchCoords(int& x, int& y, bool clamp)
 
         if (clamp)
         {
-            x = std::clamp((int)vx, 0, 255);
+            mapX(vx, x);
             y = std::clamp((int)vy, 0, 191);
 
             return true;
@@ -595,7 +605,7 @@ bool ScreenLayout::GetTouchCoords(int& x, int& y, bool clamp)
         {
             if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
             {
-                x = (int)vx;
+                if (!mapX(vx, x)) return false;
                 y = (int)vy;
 
                 return true;

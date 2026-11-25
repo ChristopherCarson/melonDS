@@ -107,7 +107,7 @@
         </item>
        </layout>
       </item>
-      <item row="12" column="0">
+      <item row="14" column="0">
        <layout class="QHBoxLayout" name="upscaleFilterLayout">
         <item>
          <widget class="QLabel" name="labelUpscaleFilter">
@@ -140,7 +140,7 @@
         </item>
        </layout>
       </item>
-      <item row="13" column="0">
+      <item row="15" column="0">
        <widget class="QCheckBox" name="cbHQ4x2DOnly">
         <property name="toolTip">
          <string>Apply the upscaling filter only to 2D graphics (backgrounds, sprites, text) and keep 3D models sharp.</string>
@@ -219,7 +219,7 @@
         <item>
          <widget class="QSpinBox" name="sbStereoEdgeCrop">
           <property name="toolTip">
-           <string>Black out this many native DS pixel columns on both side edges of each eye view to hide areas the stereo shift leaves without scene content.</string>
+           <string>Black out this many native DS pixel columns on both side edges of each eye view. When automatic cropping is enabled, this is the minimum crop.</string>
           </property>
           <property name="minimum">
            <number>0</number>
@@ -233,6 +233,26 @@
          </widget>
         </item>
        </layout>
+      </item>
+      <item row="12" column="0">
+       <widget class="QCheckBox" name="cbStereoAutoCrop">
+        <property name="toolTip">
+         <string>Estimate the stereo edge crop from the scene. The crop can grow immediately and decreases gradually; the manual crop remains the minimum.</string>
+        </property>
+        <property name="text">
+         <string>Automatic stereo edge crop</string>
+        </property>
+       </widget>
+      </item>
+      <item row="13" column="0">
+       <widget class="QCheckBox" name="cbStereoInset2D">
+        <property name="toolTip">
+         <string>Squeeze 2D graphics between the stereo crop bars. Touch input follows the inset 2D image; 3D-based touch targets may no longer align.</string>
+        </property>
+        <property name="text">
+         <string>Fit 2D graphics inside stereo crop</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>

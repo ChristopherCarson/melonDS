@@ -60,7 +60,17 @@ The stereo shift leaves thin columns without scene content at the side edges of 
 eye view, which can show the backdrop color or artifacts. Raise Stereo edge crop in
 Video settings to black out that many native DS pixel columns on both the left and
 right edges of every eye view; use the smallest value that hides them. The default
-of 0 disables cropping.
+of 0 disables manual cropping. Optional Automatic stereo edge crop estimates the
+necessary width from 3D geometry at the screen edges, grows immediately and shrinks
+gradually. The manual crop remains the minimum, and the automatic estimate is capped
+at 64 native pixels per edge. It is not exact: geometry already clipped by the DS
+cannot always be detected, and the black bars also cover 2D content near the edges.
+
+Optional Fit 2D graphics inside stereo crop squeezes the displayed 2D layers between
+the bars, helping keep edge HUD elements visible. It follows the current crop and
+does not change display capture or the 3D view. Other 2D graphics are also squeezed,
+including captured images shown as 2D. Touch input follows the squeezed 2D image;
+touch targets based on the unchanged 3D scene may be misaligned.
 
 When only bottom stereo is enabled, the top screen appears once above the two bottom
 views. To separate the screens, open another window with View > Open new window, then

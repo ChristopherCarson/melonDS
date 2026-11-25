@@ -85,6 +85,7 @@ protected:
     std::atomic<int> upscaleFilter{0}; // 0 = off, 1 = HQ4x, 2 = xBRZ
     std::atomic<bool> upscale2DOnly{true};
     std::atomic<int> stereoEdgeCrop{0};
+    std::atomic<int> stereoTouchInset{0};
 
     int screenRotation;
     int screenGap;

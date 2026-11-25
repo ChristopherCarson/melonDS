@@ -52,6 +52,8 @@ public:
     void SyncVRAMCapture(u32 bank, u32 start, u32 len, bool complete) override;
 
     bool GetFramebuffers(void** top, void** bottom) override;
+    int GetStereoEdgeCrop() const override { return StereoCropBuffers[BackBuffer ^ 1]; }
+    int GetStereo2DInset() const override { return StereoInsetBuffers[BackBuffer ^ 1]; }
 
     bool NeedsShaderCompile() override;
     void ShaderCompileStep(int& current, int& count) override;
@@ -75,6 +77,15 @@ private:
     GLuint StereoTex2D[2] {};
     bool Stereo {};
     bool StereoTop {};
+    bool StereoAutoCrop {};
+    bool StereoInset2D {};
+    int ManualStereoCrop {};
+    melonDS::StereoEdgeCrop AutoCrop;
+    int CurrentStereoCrop {};
+    int StereoCropBuffers[2] {};
+    int StereoInsetBuffers[2] {};
+    void UpdateStereoCrop(double separation, double convergence, int views);
+    int Stereo2DInset() const;
 
     // Views of the main (3D) engine that are actually displayed or captured.
     // Skipping the others avoids rendering 3D/2D output nobody will see.
@@ -107,6 +118,7 @@ private:
 
     GLuint FPShader {};
     GLuint FPConfigUBO {};
+    GLint FPInsetULoc {};
 
     GLuint FPVertexBufferID {};
     GLuint FPVertexArrayID {};

@@ -55,6 +55,8 @@ void VideoSettingsDialog::setEnabled()
     ui->cbStereoAdaptive->setEnabled(stereoEnabled);
     ui->sbStereoAdaptiveTarget->setEnabled(stereoEnabled && ui->cbStereoAdaptive->isChecked());
     ui->sbStereoEdgeCrop->setEnabled(stereoEnabled);
+    ui->cbStereoAutoCrop->setEnabled(stereoEnabled);
+    ui->cbStereoInset2D->setEnabled(stereoEnabled);
     ui->cbStereoKeep2DInFront->setEnabled(stereoEnabled);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
     bool upscaleAvailable = renderer == renderer3D_OpenGLCompute;
@@ -84,6 +86,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldStereoAdaptive = cfg.GetBool("3D.GL.StereoAdaptive");
     oldStereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget");
     oldStereoEdgeCrop = cfg.GetInt("3D.GL.StereoEdgeCrop");
+    oldStereoAutoCrop = cfg.GetBool("3D.GL.StereoAutoCrop");
+    oldStereoInset2D = cfg.GetBool("3D.GL.StereoInset2D");
     oldStereoKeep2DInFront = cfg.GetBool("3D.GL.StereoKeep2DInFront");
     oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
     oldHQ4x = cfg.GetBool("3D.GL.HQ4x");
@@ -128,6 +132,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbStereoAdaptive->setChecked(oldStereoAdaptive);
     ui->sbStereoAdaptiveTarget->setValue(oldStereoAdaptiveTarget);
     ui->sbStereoEdgeCrop->setValue(oldStereoEdgeCrop);
+    ui->cbStereoAutoCrop->setChecked(oldStereoAutoCrop);
+    ui->cbStereoInset2D->setChecked(oldStereoInset2D);
     ui->cbStereoKeep2DInFront->setChecked(oldStereoKeep2DInFront);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
     // the legacy HQ4x checkbox setting maps to the HQ4x filter
@@ -178,6 +184,8 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     cfg.SetBool("3D.GL.StereoAdaptive", oldStereoAdaptive);
     cfg.SetInt("3D.GL.StereoAdaptiveTarget", oldStereoAdaptiveTarget);
     cfg.SetInt("3D.GL.StereoEdgeCrop", oldStereoEdgeCrop);
+    cfg.SetBool("3D.GL.StereoAutoCrop", oldStereoAutoCrop);
+    cfg.SetBool("3D.GL.StereoInset2D", oldStereoInset2D);
     cfg.SetBool("3D.GL.StereoKeep2DInFront", oldStereoKeep2DInFront);
     cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
     cfg.SetBool("3D.GL.HQ4x", oldHQ4x);
@@ -308,6 +316,20 @@ void VideoSettingsDialog::on_sbStereoEdgeCrop_valueChanged(int value)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetInt("3D.GL.StereoEdgeCrop", value);
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbStereoAutoCrop_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.StereoAutoCrop", state != 0);
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbStereoInset2D_stateChanged(int state)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetBool("3D.GL.StereoInset2D", state != 0);
     emit updateVideoSettings(false);
 }
 

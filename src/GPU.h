@@ -837,6 +837,9 @@ struct RendererSettings
     int StereoAdaptiveTarget = 24;
     // shift the stereo convergence so near 3D stays behind the flat 2D layers
     bool StereoKeepFlatInFront = false;
+    bool StereoAutoCrop = false;
+    int StereoEdgeCrop = 0;
+    bool StereoInset2D = false;
 };
 
 class Renderer
@@ -869,6 +872,8 @@ public:
     // a renderer may render to RAM buffers, or to something else (ie. OpenGL)
     // if the renderer uses RAM buffers, they should be 32-bit BGRA, 256x192 for each screen
     virtual bool GetFramebuffers(void** top, void** bottom) = 0;
+    virtual int GetStereoEdgeCrop() const { return 0; }
+    virtual int GetStereo2DInset() const { return 0; }
     virtual void SwapBuffers() { BackBuffer ^= 1; }
 
     virtual bool NeedsShaderCompile() { return false; }

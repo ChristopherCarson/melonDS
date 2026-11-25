@@ -18,6 +18,7 @@
 
 #include <string.h>
 
+#include <algorithm>
 #include <optional>
 #include <cmath>
 
@@ -287,7 +288,7 @@ void ScreenPanel::mousePressEvent(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (layout.GetTouchCoords(x, y, false))
+    if (layout.GetTouchCoords(x, y, false, stereoTouchInset.load()))
     {
         touching = true;
         emuInstance->touchScreen(x, y);
@@ -320,7 +321,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (layout.GetTouchCoords(x, y, true))
+    if (layout.GetTouchCoords(x, y, true, stereoTouchInset.load()))
     {
         emuInstance->touchScreen(x, y);
     }
@@ -344,7 +345,7 @@ void ScreenPanel::tabletEvent(QTabletEvent* event)
             int y = event->y();
 #endif
 
-            if (layout.GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
+            if (layout.GetTouchCoords(x, y, event->type()==QEvent::TabletMove, stereoTouchInset.load()))
             {
                 touching = true;
                 emuInstance->touchScreen(x, y);
@@ -389,7 +390,7 @@ void ScreenPanel::touchEvent(QTouchEvent* event)
             int x = (int)lastPosition.x();
             int y = (int)lastPosition.y();
 
-            if (layout.GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
+            if (layout.GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate, stereoTouchInset.load()))
             {
                 touching = true;
                 emuInstance->touchScreen(x, y);
@@ -1211,6 +1212,7 @@ void ScreenPanelGL::drawScreen()
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D_ARRAY, texid);
         }
+        stereoTouchInset.store(nds->GPU.GetRenderer().GetStereo2DInset());
 
         screenSettingsLock.lock();
 
@@ -1225,7 +1227,7 @@ void ScreenPanelGL::drawScreen()
         glBindVertexArray(screenVertexArray);
 
         // Stereo eye views (kinds 2-5) expose non-scene columns at both side edges.
-        float crop = stereoEdgeCrop.load() / 256.0f;
+        float crop = std::max(stereoEdgeCrop.load(), nds->GPU.GetRenderer().GetStereoEdgeCrop()) / 256.0f;
         for (int i = 0; i < numScreens; i++)
         {
             int kind = screenKind[i];

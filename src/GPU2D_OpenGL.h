@@ -76,6 +76,7 @@ private:
     GLuint CompositorShader {};
     GLuint CompositorConfigUBO {};
     GLint CompositorScaleULoc {};
+    GLint CompositorInsetULoc {};
 
     // base index for a BG layer within the BG texture arrays
     // based on BG type and size
@@ -116,7 +117,7 @@ private:
     bool Stereo {};
 
     void AllocateStereoOutputs();
-    void RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d);
+    void RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d, int inset);
 
     // std140 compliant config struct for the layer shader
     struct sLayerConfig

@@ -1350,6 +1350,7 @@ void GLRenderer3D::RenderFrame()
     if (Stereo)
         views = glCopyImageSubData ? Parent.StereoViews()
                                    : (GLRenderer::StereoView_Center | GLRenderer::StereoView_Eyes);
+    Parent.UpdateStereoCrop(separation, StereoConvergence, views);
     if (views != LastStereoViews)
     {
         LastStereoViews = views;
