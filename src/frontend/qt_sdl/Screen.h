@@ -23,6 +23,7 @@
 #include <optional>
 #include <deque>
 #include <map>
+#include <vector>
 
 #include <QWidget>
 #include <QImage>
@@ -110,6 +111,13 @@ protected:
     bool mouseHide;
     int mouseHideDelay;
 
+    // Software cursor drawn into both stereo eyes in place of the OS cursor.
+    bool softwareCursorSupported = false;
+    bool stereoLayoutVisible = false;
+    std::atomic<bool> softwareCursorVisible{false};
+    std::atomic<int> softwareCursorX{0}, softwareCursorY{0};
+    bool useSoftwareCursor();
+
     struct OSDItem
     {
         unsigned int id;
@@ -143,12 +151,13 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void leaveEvent(QEvent* event) override;
 
     void tabletEvent(QTabletEvent* event) override;
     void touchEvent(QTouchEvent* event);
     bool event(QEvent* event) override;
 
-    void showCursor();
+    void showCursor(QPoint pos);
 
     int osdFindBreakPoint(const char* text, int i);
     void osdLayoutText(const char* text, int* width, int* height, int* breaks);
@@ -246,6 +255,15 @@ private:
     std::map<unsigned int, GLuint> osdTextures;
 
     GLuint logoTexture;
+
+    GLuint cursorShader;
+    GLint cursorScreenSizeULoc, cursorRectULoc;
+    GLuint cursorTexture = 0;
+    int cursorWidth = 0, cursorHeight = 0;
+    int cursorHotX = 0, cursorHotY = 0;
+    std::vector<melonDS::u8> cursorPixels;
+
+    void drawSoftwareCursor(int w, int h, float factor);
 
     void osdRenderItem(OSDItem* item) override;
     void osdDeleteItem(OSDItem* item) override;

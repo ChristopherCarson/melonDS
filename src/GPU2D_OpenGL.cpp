@@ -155,6 +155,7 @@ bool GLRenderer2D::InitShaders()
 
     CompositorScaleULoc = glGetUniformLocation(CompositorShader, "uScaleFactor");
     CompositorInsetULoc = glGetUniformLocation(CompositorShader, "uStereoInset");
+    CompositorInset3DULoc = glGetUniformLocation(CompositorShader, "uStereoInset3D");
 
     // generate mosaic lookup texture
 
@@ -193,6 +194,7 @@ bool GLRenderer2D::InitShaders(GLRenderer2D& other)
     SpriteRenderTransULoc = other.SpriteRenderTransULoc;
     CompositorScaleULoc = other.CompositorScaleULoc;
     CompositorInsetULoc = other.CompositorInsetULoc;
+    CompositorInset3DULoc = other.CompositorInset3DULoc;
 
     MosaicTex = other.MosaicTex;
 
@@ -1807,18 +1809,21 @@ void GLRenderer2D::RenderScreen(int ystart, int yend)
     int views = Stereo ? Parent.StereoViews() : GLRenderer::StereoView_Center;
     int inset = Stereo ? Parent.Stereo2DInset() : 0;
     if (views & GLRenderer::StereoView_Center)
-        RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D, 0);
+        RenderScreenOutput(ystart, yend, OutputFB, Parent.OutputTex3D, 0, false);
     if ((views & GLRenderer::StereoView_Eyes) || inset)
     {
+        bool flat3D = !(views & GLRenderer::StereoView_Eyes);
         for (int eye = 0; eye < 2; eye++)
         {
-            GLuint tex3d = (views & GLRenderer::StereoView_Eyes) ? Parent.StereoTex3D[eye] : Parent.OutputTex3D;
-            RenderScreenOutput(ystart, yend, StereoOutputFB[eye], tex3d, inset);
+            GLuint tex3d = flat3D ? Parent.OutputTex3D : Parent.StereoTex3D[eye];
+            // Flat dual-screen 3D alternates with captured 2D frames, so both must be inset.
+            RenderScreenOutput(ystart, yend, StereoOutputFB[eye], tex3d, inset, flat3D);
         }
     }
 }
 
-void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d, int inset)
+void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, GLuint tex3d, int inset,
+                                      bool inset3D)
 {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
@@ -1854,6 +1859,7 @@ void GLRenderer2D::RenderScreenOutput(int ystart, int yend, GLuint framebuffer, 
 
     glUseProgram(CompositorShader);
     glUniform1f(CompositorInsetULoc, static_cast<float>(inset));
+    glUniform1i(CompositorInset3DULoc, inset3D);
 
     glBindBufferBase(GL_UNIFORM_BUFFER, 20, LayerConfigUBO);
     glBindBufferBase(GL_UNIFORM_BUFFER, 22, ScanlineConfigUBO);

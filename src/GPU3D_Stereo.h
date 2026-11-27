@@ -19,6 +19,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -37,10 +38,19 @@ inline double StereoDepthTerm(s32 clipW)
 class StereoEdgeCrop
 {
 public:
-    void Reset() { crop = 0.0; }
-
-    int Update(const Polygon* const* polygons, u32 count, double separation, double convergence)
+    void Reset()
     {
+        crop = 0.0;
+        recent.fill(0.0);
+        recentIndex = 0;
+    }
+
+    int Update(const Polygon* const* polygons, u32 count, double separation, double convergence,
+               bool hold = false)
+    {
+        if (hold)
+            return static_cast<int>(std::ceil(crop));
+
         double widest = 0.0;
         for (u32 i = 0; i < count; i++)
         {
@@ -62,9 +72,14 @@ public:
 
         // One extra native pixel covers edge rounding and display filtering.
         double desired = widest > 0.0 ? std::min(64.0, std::ceil(widest) + 1.0) : 0.0;
-        if (desired >= crop)
-            crop = desired;
-        else
+        recent[recentIndex] = desired;
+        recentIndex = (recentIndex + 1) % recent.size();
+        // Camera cuts can report edge geometry for a frame or two. Grow only to
+        // the width requested by every recent frame so brief spikes are ignored.
+        double sustained = *std::min_element(recent.begin(), recent.end());
+        if (sustained >= crop)
+            crop = sustained;
+        else if (desired < crop)
         {
             crop += (desired - crop) * 0.1;
             if (crop - desired < 0.01) crop = desired;
@@ -73,7 +88,10 @@ public:
     }
 
 private:
+    static constexpr int GrowthFrames = 4;
     double crop = 0.0;
+    std::array<double, GrowthFrames> recent {};
+    size_t recentIndex = 0;
 };
 
 class AdaptiveStereo

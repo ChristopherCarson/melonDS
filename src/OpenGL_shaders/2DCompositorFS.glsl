@@ -51,6 +51,7 @@ layout(std140) uniform ubCompositorConfig
 
 uniform int uScaleFactor;
 uniform float uStereoInset;
+uniform bool uStereoInset3D;
 
 smooth in vec4 fTexcoord;
 
@@ -288,7 +289,8 @@ vec4 CompositeLayers()
     bool top3D = false;
 
     vec4 layercol[6];
-    if (uEnable3D && uStereoInset > 0.0)
+    bool original3D = uEnable3D && uStereoInset > 0.0 && !uStereoInset3D;
+    if (original3D)
     {
         if (uScanline[line].MosaicSize.x > 0)
             MosaicX = texelFetch(MosaicTex, ivec2(originalBGCoord.x, uScanline[line].MosaicSize.x), 0).r;
@@ -297,7 +299,7 @@ vec4 CompositeLayers()
 
     if (uScanline[line].MosaicSize.x > 0)
         MosaicX = texelFetch(MosaicTex, ivec2(bgcoord.x, uScanline[line].MosaicSize.x), 0).r;
-    if (!uEnable3D || uStereoInset <= 0.0)
+    if (!original3D)
         layercol[0] = BG0CalcAndFetch(bgcoord, line);
     layercol[1] = BG1CalcAndFetch(bgcoord, line);
     layercol[2] = BG2CalcAndFetch(bgcoord, line);
@@ -315,7 +317,7 @@ vec4 CompositeLayers()
 
     uint winsel = WindowSelection(int(bgcoord.x), line, objflags);
     uint winsel3D = winsel;
-    if (uStereoInset > 0.0 && uEnable3D)
+    if (original3D)
     {
         ivec4 originalFlags;
         if (uScanline[line].MosaicSize.z > 0)

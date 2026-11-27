@@ -26,6 +26,7 @@
 #include <QPainter>
 
 #include <QDateTime>
+#include <QFile>
 
 #include "OpenGLSupport.h"
 #include "duckstation/gl/context.h"
@@ -59,6 +60,95 @@ using namespace QNativeInterface;
 const u32 kOSDMargin = 6;
 const int kLogoWidth = 192;
 
+const char* kCursorVS = R"(#version 140
+
+uniform vec2 uScreenSize;
+uniform vec4 uRect;
+
+in vec2 vPosition;
+smooth out vec2 fTexcoord;
+
+void main()
+{
+    fTexcoord = vPosition;
+    vec2 pos = uRect.xy + vPosition * uRect.zw;
+    gl_Position = vec4(pos * 2.0 / uScreenSize - 1.0, 0.0, 1.0);
+    gl_Position.y *= -1.0;
+}
+)";
+
+const char* kCursorFS = R"(#version 140
+
+uniform sampler2D CursorTex;
+smooth in vec2 fTexcoord;
+out vec4 oColor;
+
+void main()
+{
+    oColor = texture(CursorTex, fTexcoord).bgra;
+}
+)";
+
+// Decodes a single-image 32bpp Windows .cur into top-down, premultiplied BGRA.
+static bool loadStereoCursor(const QString& path, std::vector<u8>& pixels,
+                             int& width, int& height, int& hotX, int& hotY)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QByteArray data = file.readAll();
+    auto bytes = reinterpret_cast<const u8*>(data.constData());
+    auto rd16 = [&](int o) { return bytes[o] | (bytes[o+1] << 8); };
+    auto rd32 = [&](int o) { return (u32)(rd16(o) | (rd16(o+2) << 16)); };
+
+    if (data.size() < 22 || rd16(0) != 0 || rd16(2) != 2 || rd16(4) < 1) return false;
+    hotX = rd16(10);
+    hotY = rd16(12);
+    u32 offset = rd32(18);
+    if (offset + 40 > (u32)data.size()) return false;
+
+    u32 headerSize = rd32(offset);
+    width = (int)rd32(offset + 4);
+    height = (int)rd32(offset + 8) / 2;
+    if (rd16(offset + 14) != 32 || rd32(offset + 16) != 0 ||
+        width <= 0 || height <= 0 || width > 256 || height > 256)
+        return false;
+
+    u32 colorOffset = offset + headerSize;
+    u32 maskStride = ((width + 31) / 32) * 4;
+    u32 maskOffset = colorOffset + width * height * 4;
+    if (maskOffset > (u32)data.size()) return false;
+    bool hasMask = maskOffset + maskStride * height <= (u32)data.size();
+
+    bool hasAlpha = false;
+    for (int i = 0; i < width * height; i++)
+        hasAlpha |= bytes[colorOffset + i * 4 + 3] != 0;
+
+    pixels.resize(width * height * 4);
+    for (int y = 0; y < height; y++)
+    {
+        int srcY = height - 1 - y;
+        for (int x = 0; x < width; x++)
+        {
+            const u8* src = bytes + colorOffset + (srcY * width + x) * 4;
+            u8* dst = &pixels[(y * width + x) * 4];
+            u32 alpha = src[3];
+            if (!hasAlpha)
+            {
+                bool transparent = hasMask &&
+                    (bytes[maskOffset + srcY * maskStride + x / 8] & (0x80 >> (x & 7)));
+                alpha = transparent ? 0 : 255;
+            }
+            for (int c = 0; c < 3; c++)
+                dst[c] = (u8)((src[c] * alpha + 127) / 255);
+            dst[3] = (u8)alpha;
+        }
+    }
+
+    hotX = std::clamp(hotX, 0, width - 1);
+    hotY = std::clamp(hotY, 0, height - 1);
+    return true;
+}
+
 
 ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
 {
@@ -80,7 +170,11 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     mouseHideDelay = 0;
 
     QTimer* mouseTimer = setupMouseTimer();
-    connect(mouseTimer, &QTimer::timeout, [=] { if (mouseHide) setCursor(Qt::BlankCursor);});
+    connect(mouseTimer, &QTimer::timeout, [=] {
+        if (!mouseHide) return;
+        setCursor(Qt::BlankCursor);
+        softwareCursorVisible = false;
+    });
 
     osdEnabled = false;
     osdID = 1;
@@ -200,6 +294,13 @@ void ScreenPanel::setupScreenLayout()
 
     numScreens = layout.GetScreenTransforms(screenMatrix[0], screenKind);
 
+    stereoLayoutVisible = visibleStereo;
+    if (!visibleStereo && softwareCursorVisible)
+    {
+        softwareCursorVisible = false;
+        setCursor(Qt::ArrowCursor);
+    }
+
     calcSplashLayout();
 }
 
@@ -312,7 +413,7 @@ void ScreenPanel::mouseMoveEvent(QMouseEvent* event)
 {
     event->accept();
 
-    showCursor();
+    showCursor(event->pos());
 
     if (!emuInstance->emuIsActive()) return;
     //if (!(event->buttons() & Qt::LeftButton)) return;
@@ -426,10 +527,32 @@ bool ScreenPanel::event(QEvent* event)
     return QWidget::event(event);
 }
 
-void ScreenPanel::showCursor()
+bool ScreenPanel::useSoftwareCursor()
 {
-    mainWindow->panel->setCursor(Qt::ArrowCursor);
+    return softwareCursorSupported && stereoLayoutVisible && emuInstance->emuIsActive();
+}
+
+void ScreenPanel::showCursor(QPoint pos)
+{
+    if (useSoftwareCursor())
+    {
+        softwareCursorX = pos.x();
+        softwareCursorY = pos.y();
+        softwareCursorVisible = true;
+        setCursor(Qt::BlankCursor);
+    }
+    else
+    {
+        softwareCursorVisible = false;
+        setCursor(Qt::ArrowCursor);
+    }
     mouseTimer->start();
+}
+
+void ScreenPanel::leaveEvent(QEvent* event)
+{
+    softwareCursorVisible = false;
+    QWidget::leaveEvent(event);
 }
 
 QTimer* ScreenPanel::setupMouseTimer()
@@ -905,6 +1028,9 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : ScreenPanel(parent)
     setMinimumSize(screenGetMinSize());
 
     glInited = false;
+
+    softwareCursorSupported = loadStereoCursor(":/stereo-cursor", cursorPixels,
+                                               cursorWidth, cursorHeight, cursorHotX, cursorHotY);
 }
 
 ScreenPanelGL::~ScreenPanelGL()
@@ -1080,6 +1206,27 @@ void ScreenPanelGL::initOpenGL()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, logo.width(), logo.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, logo.bits());
     logoTexture = tex;
 
+    OpenGL::CompileVertexFragmentProgram(cursorShader,
+                                         kCursorVS, kCursorFS,
+                                         "CursorShader",
+                                         {{"vPosition", 0}},
+                                         {{"oColor", 0}});
+    glUseProgram(cursorShader);
+    glUniform1i(glGetUniformLocation(cursorShader, "CursorTex"), 0);
+    cursorScreenSizeULoc = glGetUniformLocation(cursorShader, "uScreenSize");
+    cursorRectULoc = glGetUniformLocation(cursorShader, "uRect");
+
+    if (softwareCursorSupported)
+    {
+        glGenTextures(1, &cursorTexture);
+        glBindTexture(GL_TEXTURE_2D, cursorTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, cursorWidth, cursorHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, cursorPixels.data());
+    }
+
     transferLayout();
     glInited = true;
 }
@@ -1109,6 +1256,13 @@ void ScreenPanelGL::deinitOpenGL()
     glDeleteBuffers(1, &osdVertexBuffer);
 
     glDeleteTextures(1, &logoTexture);
+
+    if (cursorTexture)
+    {
+        glDeleteTextures(1, &cursorTexture);
+        cursorTexture = 0;
+    }
+    glDeleteProgram(cursorShader);
 
     glDeleteProgram(osdShader);
 
@@ -1329,7 +1483,69 @@ void ScreenPanelGL::drawScreen()
         osdMutex.unlock();
     }
 
+    if (emuThread->emuIsActive())
+        drawSoftwareCursor(w, h, factor);
+
     glContext->SwapBuffers();
+}
+
+void ScreenPanelGL::drawSoftwareCursor(int w, int h, float factor)
+{
+    if (!cursorTexture || !softwareCursorVisible) return;
+
+    float matrices[kMaxScreenTransforms * 6];
+    int kinds[kMaxScreenTransforms];
+    screenSettingsLock.lock();
+    int count = numScreens;
+    memcpy(matrices, screenMatrix, sizeof(float) * 6 * count);
+    memcpy(kinds, screenKind, sizeof(int) * count);
+    screenSettingsLock.unlock();
+
+    StereoCursorPosition positions[2];
+    int numPositions = GetStereoCursorPositions(matrices, kinds, count,
+                                                softwareCursorX.load(), softwareCursorY.load(),
+                                                positions);
+
+    glUseProgram(cursorShader);
+    glUniform2f(cursorScreenSizeULoc, w / factor, h / factor);
+    glBindBuffer(GL_ARRAY_BUFFER, osdVertexBuffer);
+    glBindVertexArray(osdVertexArray);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, cursorTexture);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+    for (int i = 0; i < numPositions; i++)
+    {
+        // Half-SBS eyes are squeezed horizontally; squeeze the cursor to match.
+        float scaleX = 1.0f;
+        if (positions[i].screen >= 0)
+        {
+            const float* m = matrices + 6 * positions[i].screen;
+            if (m[3] != 0.0f) scaleX = std::fabs(m[0] / m[3]);
+
+            // Keep each copy inside its own eye view.
+            float x0 = std::min(m[4], m[4] + 256.0f * m[0]);
+            float x1 = std::max(m[4], m[4] + 256.0f * m[0]);
+            float y0 = std::min(m[5], m[5] + 192.0f * m[3]);
+            float y1 = std::max(m[5], m[5] + 192.0f * m[3]);
+            int sx0 = (int)std::floor(x0 * factor), sx1 = (int)std::ceil(x1 * factor);
+            int sy0 = (int)std::floor(y0 * factor), sy1 = (int)std::ceil(y1 * factor);
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(sx0, h - sy1, sx1 - sx0, sy1 - sy0);
+        }
+        else
+            glDisable(GL_SCISSOR_TEST);
+        float cw = cursorWidth * scaleX;
+        glUniform4f(cursorRectULoc,
+                    positions[i].x - cursorHotX * scaleX, positions[i].y - cursorHotY,
+                    cw, (float)cursorHeight);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+    }
+
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_BLEND);
+    glUseProgram(0);
 }
 
 qreal ScreenPanelGL::devicePixelRatioFromScreen() const

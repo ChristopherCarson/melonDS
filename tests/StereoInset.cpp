@@ -212,6 +212,16 @@ void main()
     gl->glDrawArrays(GL_TRIANGLES, 0, 3);
     assert(pixel(16)[0] == 16 && pixel(16)[3] == 128);
     assert(pixel(8)[0] == 0 && pixel(8)[3] == 255);
+
+    // Flat dual-screen 3D must use the same inset as alternating captured 2D frames.
+    program.setUniformValue("uStereoInset3D", true);
+    for (auto& line : lines)
+        line.windows = 0x3F3F3F3F;
+    upload(1);
+    gl->glDrawArrays(GL_TRIANGLES, 0, 3);
+    assert(pixel(16)[0] == 0 && pixel(16)[3] == 128);
+    assert(pixel(128)[0] == 128 && pixel(128)[3] == 128);
+    assert(pixel(239)[0] == 252 && pixel(239)[3] == 128);
     assert(gl->glGetError() == GL_NO_ERROR);
     std::puts("Stereo 2D inset compositor checks passed");
     return 0;

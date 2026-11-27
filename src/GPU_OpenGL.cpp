@@ -454,11 +454,21 @@ int GLRenderer::StereoViews() const
 void GLRenderer::UpdateStereoCrop(double separation, double convergence, int views)
 {
     if (!StereoAutoCrop) return;
+    const auto& main = GPU.GPU2D_A;
+    bool mainOnStereoScreen = GPU.ScreenSwap ? StereoTop : Stereo;
+    bool stereoSceneVisible = (views & StereoView_Eyes) && mainOnStereoScreen &&
+                              !CaptureFallback.Active() && main.Enabled && !main.ForcedBlank &&
+                              ((main.DispCnt >> 16) & 3) == 1 &&
+                              (main.DispCnt & (1 << 3)) && (main.LayerEnable & 1) &&
+                              GPU.GPU3D.RenderNumPolygons > 0;
+    // Keep maps and menus at the last scene's width, including while unused
+    // eye views are still rendered during the screen-swap hold period.
+    bool hold = StereoInset2D && !stereoSceneVisible;
     if (views & StereoView_Eyes)
         CurrentStereoCrop = AutoCrop.Update(GPU.GPU3D.RenderPolygonRAM.data(),
-                                            GPU.GPU3D.RenderNumPolygons, separation, convergence);
+                                            GPU.GPU3D.RenderNumPolygons, separation, convergence, hold);
     else
-        CurrentStereoCrop = AutoCrop.Update(nullptr, 0, 0.0, 0.0);
+        CurrentStereoCrop = AutoCrop.Update(nullptr, 0, 0.0, 0.0, hold);
 }
 
 int GLRenderer::Stereo2DInset() const

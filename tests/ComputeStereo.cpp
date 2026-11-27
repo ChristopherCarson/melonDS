@@ -71,6 +71,13 @@ int main()
     assert(adaptive.Convergence() == 0.0);
 
     StereoEdgeCrop crop;
+    auto sustain = [&](const Polygon* const* list, u32 count, double separation, double convergence)
+    {
+        int result = 0;
+        for (int i = 0; i < 4; i++)
+            result = crop.Update(list, count, separation, convergence);
+        return result;
+    };
     for (auto& vertex : sceneVertices)
     {
         vertex.FinalPosition[0] = 128;
@@ -78,26 +85,51 @@ int main()
     }
     assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
     sceneVertices[0].FinalPosition[0] = 0;
+    // A brief camera-transition spike does not enlarge the crop.
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    sceneVertices[0].FinalPosition[0] = 128;
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    sceneVertices[0].FinalPosition[0] = 0;
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    // A width that persists for four frames is applied.
     assert(crop.Update(polygons, 1, 10.0, 0.0) == 16);
     // Both depth directions and both original edges use the same common crop.
     sceneVertices[0].FinalPosition[0] = 255;
     sceneVertices[0].Position[3] = 131072;
-    assert(crop.Update(polygons, 1, 40.0, 0.0) == 31);
+    assert(sustain(polygons, 1, 40.0, 0.0) == 31);
     assert(crop.Update(polygons, 1, 40.0, -0.5) == 28);
-    assert(crop.Update(polygons, 1, 400.0, 0.0) == 64);
+    assert(sustain(polygons, 1, 400.0, 0.0) == 64);
     assert(crop.Update(nullptr, 0, 0.0, 0.0) == 58);
-    assert(crop.Update(polygons, 1, 400.0, 0.0) == 64);
+    // Growth waits for the most recent frames to agree.
+    assert(crop.Update(polygons, 1, 400.0, 0.0) == 58);
+    assert(sustain(polygons, 1, 400.0, 0.0) == 64);
     crop.Reset();
-    assert(crop.Update(polygons, 1, 40.0, -0.5) == 0);
+    assert(sustain(polygons, 1, 40.0, -0.5) == 0);
     sceneVertices[0].FinalPosition[0] = 300;
-    assert(crop.Update(polygons, 1, 40.0, 0.0) == 0);
+    assert(sustain(polygons, 1, 40.0, 0.0) == 0);
     sceneVertices[0].FinalPosition[0] = 0;
     sceneVertices[0].Position[3] = 0;
-    assert(crop.Update(polygons, 1, 40.0, 0.0) == 0);
+    assert(sustain(polygons, 1, 40.0, 0.0) == 0);
     sceneVertices[0].Position[3] = 131072;
     scene.IsShadowMask = true;
-    assert(crop.Update(polygons, 1, 40.0, 0.0) == 0);
+    assert(sustain(polygons, 1, 40.0, 0.0) == 0);
     scene.IsShadowMask = false;
+
+    // A full-screen 2D view holds its width even if offscreen 3D keeps changing.
+    assert(sustain(polygons, 1, 40.0, 0.0) == 31);
+    for (int i = 0; i < 300; i++)
+    {
+        assert(crop.Update(polygons, 1, 400.0, 0.0, true) == 31);
+        assert(crop.Update(nullptr, 0, 0.0, 0.0, true) == 31);
+    }
+    // Live 3D still shrinks gradually and grows once wider edges persist.
+    assert(crop.Update(polygons, 1, 0.0, 0.0) == 28);
+    assert(sustain(polygons, 1, 400.0, 0.0) == 64);
+    crop.Reset();
+    assert(crop.Update(nullptr, 0, 0.0, 0.0, true) == 0);
 
     ComputeSpanVertices vertices {};
     vertices[0] = {-100, 0, 100, 100, {0, 10, 20}, {0, 10}};

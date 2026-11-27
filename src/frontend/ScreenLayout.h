@@ -50,6 +50,18 @@ enum ScreenSizing
 
 const int kMaxScreenTransforms = 4;
 
+struct StereoCursorPosition
+{
+    float x, y;
+    int screen; // index of the containing stereo eye transform, or -1
+};
+
+// Places a host cursor at the same local position in both views of a stereo pair, so
+// it appears at the screen plane. Elsewhere, the original position is returned.
+// 'out' must hold two positions; returns the number written.
+int GetStereoCursorPositions(const float* matrices, const int* kinds, int count,
+                             float x, float y, StereoCursorPosition* out);
+
 class ScreenLayout
 {
 public:

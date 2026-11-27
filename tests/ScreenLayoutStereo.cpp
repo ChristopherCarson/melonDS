@@ -40,6 +40,16 @@ int main()
     assert(matrices[4] == 0.0f && matrices[5] == 180.0f);
     assert(matrices[10] == 960.0f);
 
+    // The cursor is mirrored at the same local position in both eyes.
+    StereoCursorPosition cursor[2];
+    assert(GetStereoCursorPositions(matrices, kinds, 2, 480, 540, cursor) == 2);
+    assert(cursor[0].x == 480 && cursor[0].y == 540 && cursor[0].screen == 0);
+    assert(cursor[1].x == 1440 && cursor[1].y == 540 && cursor[1].screen == 1);
+    assert(GetStereoCursorPositions(matrices, kinds, 2, 1500, 600, cursor) == 2);
+    assert(cursor[0].screen == 1 && cursor[1].x == 540 && cursor[1].y == 600 && cursor[1].screen == 0);
+    assert(GetStereoCursorPositions(matrices, kinds, 2, 480, 100, cursor) == 1);
+    assert(cursor[0].x == 480 && cursor[0].y == 100 && cursor[0].screen == -1);
+
     layout.SetupStereo(1920, 1080, 0, false, true, true);
     assert(layout.GetScreenTransforms(matrices, kinds) == 2);
     assert(kinds[0] == 2 && kinds[1] == 3);
@@ -75,6 +85,12 @@ int main()
     assert(!layout.GetTouchCoords(x, y, false));
     x = 1440; y = 810;
     assert(layout.GetTouchCoords(x, y, false) && x == 128 && y == 96);
+    assert(GetStereoCursorPositions(matrices, kinds, 4, 480, 270, cursor) == 2);
+    assert(cursor[0].screen == 0 && cursor[1].screen == 1);
+    assert(cursor[1].x == 1440 && cursor[1].y == 270);
+    assert(GetStereoCursorPositions(matrices, kinds, 4, 1440, 810, cursor) == 2);
+    assert(cursor[0].screen == 3 && cursor[1].screen == 2);
+    assert(cursor[1].x == 480 && cursor[1].y == 810);
 
     layout.SetupStereo(1920, 1080, 0, false, false, true, true);
     assert(layout.GetScreenTransforms(matrices, kinds) == 4);

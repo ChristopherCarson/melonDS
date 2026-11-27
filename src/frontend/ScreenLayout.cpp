@@ -105,6 +105,39 @@ void M23_Transform(float* m, float& x, float& y)
     y = (vx * m[1]) + (vy * m[3]) + m[5];
 }
 
+int GetStereoCursorPositions(const float* matrices, const int* kinds, int count,
+                             float x, float y, StereoCursorPosition* out)
+{
+    for (int i = 0; i < count; i++)
+    {
+        int kind = kinds[i];
+        if (kind < 2 || kind > 5) continue;
+
+        const float* m = matrices + 6 * i;
+        float det = m[0] * m[3] - m[1] * m[2];
+        if (det == 0.0f) continue;
+        float dx = x - m[4];
+        float dy = y - m[5];
+        float u = (m[3] * dx - m[2] * dy) / det;
+        float v = (m[0] * dy - m[1] * dx) / det;
+        if (u < 0.0f || u >= 256.0f || v < 0.0f || v >= 192.0f) continue;
+
+        out[0] = {x, y, i};
+        int pair = kind ^ 1; // 2 <-> 3, 4 <-> 5
+        for (int j = 0; j < count; j++)
+        {
+            if (kinds[j] != pair) continue;
+            const float* p = matrices + 6 * j;
+            out[1] = {u * p[0] + v * p[2] + p[4], u * p[1] + v * p[3] + p[5], j};
+            return 2;
+        }
+        return 1;
+    }
+
+    out[0] = {x, y, -1};
+    return 1;
+}
+
 
 ScreenLayout::ScreenLayout()
 {
