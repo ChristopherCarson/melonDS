@@ -56,6 +56,7 @@ void VideoSettingsDialog::setEnabled()
     ui->sbStereoAdaptiveTarget->setEnabled(stereoEnabled && ui->cbStereoAdaptive->isChecked());
     ui->sbStereoEdgeCrop->setEnabled(stereoEnabled);
     ui->cbStereoAutoCrop->setEnabled(stereoEnabled);
+    ui->sbStereoAutoCropSettle->setEnabled(stereoEnabled && ui->cbStereoAutoCrop->isChecked());
     ui->cbStereoInset2D->setEnabled(stereoEnabled);
     ui->cbStereoKeep2DInFront->setEnabled(stereoEnabled);
     ui->cbxComputeHiResCoords->setEnabled(renderer == renderer3D_OpenGLCompute);
@@ -87,6 +88,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldStereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget");
     oldStereoEdgeCrop = cfg.GetInt("3D.GL.StereoEdgeCrop");
     oldStereoAutoCrop = cfg.GetBool("3D.GL.StereoAutoCrop");
+    oldStereoAutoCropSettle = cfg.GetInt("3D.GL.StereoAutoCropSettleFrames");
     oldStereoInset2D = cfg.GetBool("3D.GL.StereoInset2D");
     oldStereoKeep2DInFront = cfg.GetBool("3D.GL.StereoKeep2DInFront");
     oldHiresCoordinates = cfg.GetBool("3D.GL.HiresCoordinates");
@@ -133,6 +135,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->sbStereoAdaptiveTarget->setValue(oldStereoAdaptiveTarget);
     ui->sbStereoEdgeCrop->setValue(oldStereoEdgeCrop);
     ui->cbStereoAutoCrop->setChecked(oldStereoAutoCrop);
+    ui->sbStereoAutoCropSettle->setValue(oldStereoAutoCropSettle);
     ui->cbStereoInset2D->setChecked(oldStereoInset2D);
     ui->cbStereoKeep2DInFront->setChecked(oldStereoKeep2DInFront);
     ui->cbxComputeHiResCoords->setChecked(oldHiresCoordinates != 0);
@@ -185,6 +188,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     cfg.SetInt("3D.GL.StereoAdaptiveTarget", oldStereoAdaptiveTarget);
     cfg.SetInt("3D.GL.StereoEdgeCrop", oldStereoEdgeCrop);
     cfg.SetBool("3D.GL.StereoAutoCrop", oldStereoAutoCrop);
+    cfg.SetInt("3D.GL.StereoAutoCropSettleFrames", oldStereoAutoCropSettle);
     cfg.SetBool("3D.GL.StereoInset2D", oldStereoInset2D);
     cfg.SetBool("3D.GL.StereoKeep2DInFront", oldStereoKeep2DInFront);
     cfg.SetBool("3D.GL.HiresCoordinates", oldHiresCoordinates);
@@ -323,6 +327,14 @@ void VideoSettingsDialog::on_cbStereoAutoCrop_stateChanged(int state)
 {
     auto& cfg = emuInstance->getGlobalConfig();
     cfg.SetBool("3D.GL.StereoAutoCrop", state != 0);
+    setEnabled();
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_sbStereoAutoCropSettle_valueChanged(int value)
+{
+    auto& cfg = emuInstance->getGlobalConfig();
+    cfg.SetInt("3D.GL.StereoAutoCropSettleFrames", value);
     emit updateVideoSettings(false);
 }
 

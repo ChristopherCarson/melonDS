@@ -169,6 +169,17 @@ ScreenPanel::ScreenPanel(QWidget* parent) : QWidget(parent)
     mouseHide = false;
     mouseHideDelay = 0;
 
+    gameCursorLoaded = loadStereoCursor(":/stereo-cursor", cursorPixels,
+                                        cursorWidth, cursorHeight, cursorHotX, cursorHotY);
+    if (gameCursorLoaded)
+    {
+        // The decoded pixels are premultiplied BGRA, matching ARGB32 on little-endian.
+        QImage image(cursorPixels.data(), cursorWidth, cursorHeight, cursorWidth * 4,
+                     QImage::Format_ARGB32_Premultiplied);
+        gameCursor = QCursor(QPixmap::fromImage(image.copy()), cursorHotX, cursorHotY);
+    }
+    setGameCursor();
+
     QTimer* mouseTimer = setupMouseTimer();
     connect(mouseTimer, &QTimer::timeout, [=] {
         if (!mouseHide) return;
@@ -298,7 +309,7 @@ void ScreenPanel::setupScreenLayout()
     if (!visibleStereo && softwareCursorVisible)
     {
         softwareCursorVisible = false;
-        setCursor(Qt::ArrowCursor);
+        setGameCursor();
     }
 
     calcSplashLayout();
@@ -532,6 +543,14 @@ bool ScreenPanel::useSoftwareCursor()
     return softwareCursorSupported && stereoLayoutVisible && emuInstance->emuIsActive();
 }
 
+void ScreenPanel::setGameCursor()
+{
+    if (gameCursorLoaded)
+        setCursor(gameCursor);
+    else
+        setCursor(Qt::ArrowCursor);
+}
+
 void ScreenPanel::showCursor(QPoint pos)
 {
     if (useSoftwareCursor())
@@ -544,7 +563,7 @@ void ScreenPanel::showCursor(QPoint pos)
     else
     {
         softwareCursorVisible = false;
-        setCursor(Qt::ArrowCursor);
+        setGameCursor();
     }
     mouseTimer->start();
 }
@@ -1029,8 +1048,7 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : ScreenPanel(parent)
 
     glInited = false;
 
-    softwareCursorSupported = loadStereoCursor(":/stereo-cursor", cursorPixels,
-                                               cursorWidth, cursorHeight, cursorHotX, cursorHotY);
+    softwareCursorSupported = gameCursorLoaded;
 }
 
 ScreenPanelGL::~ScreenPanelGL()
@@ -1483,8 +1501,7 @@ void ScreenPanelGL::drawScreen()
         osdMutex.unlock();
     }
 
-    if (emuThread->emuIsActive())
-        drawSoftwareCursor(w, h, factor);
+    drawSoftwareCursor(w, h, factor);
 
     glContext->SwapBuffers();
 }
@@ -1496,7 +1513,7 @@ void ScreenPanelGL::drawSoftwareCursor(int w, int h, float factor)
     float matrices[kMaxScreenTransforms * 6];
     int kinds[kMaxScreenTransforms];
     screenSettingsLock.lock();
-    int count = numScreens;
+    int count = emuInstance->emuIsActive() ? numScreens : 0;
     memcpy(matrices, screenMatrix, sizeof(float) * 6 * count);
     memcpy(kinds, screenKind, sizeof(int) * count);
     screenSettingsLock.unlock();

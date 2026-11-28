@@ -838,6 +838,8 @@ struct RendererSettings
     // shift the stereo convergence so near 3D stays behind the flat 2D layers
     bool StereoKeepFlatInFront = false;
     bool StereoAutoCrop = false;
+    // frames a new automatic crop width must persist before it is applied
+    int StereoAutoCropSettleFrames = 30;
     int StereoEdgeCrop = 0;
     bool StereoInset2D = false;
 };

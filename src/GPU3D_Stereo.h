@@ -38,10 +38,24 @@ inline double StereoDepthTerm(s32 clipW)
 class StereoEdgeCrop
 {
 public:
+    static constexpr int DefaultSettleFrames = 30; // about half a second at 60 fps
+    static constexpr int MaxSettleFrames = 600;
+
     void Reset()
     {
         crop = 0.0;
+        target = 0.0;
         recent.fill(0.0);
+        recentIndex = 0;
+    }
+
+    // Number of consecutive frames that must agree before the crop width changes.
+    void SetSettleFrames(int frames)
+    {
+        frames = std::clamp(frames, 1, MaxSettleFrames);
+        if (frames == settleFrames) return;
+        settleFrames = frames;
+        std::fill(recent.begin(), recent.end(), target);
         recentIndex = 0;
     }
 
@@ -73,24 +87,25 @@ public:
         // One extra native pixel covers edge rounding and display filtering.
         double desired = widest > 0.0 ? std::min(64.0, std::ceil(widest) + 1.0) : 0.0;
         recent[recentIndex] = desired;
-        recentIndex = (recentIndex + 1) % recent.size();
-        // Camera cuts can report edge geometry for a frame or two. Grow only to
-        // the width requested by every recent frame so brief spikes are ignored.
-        double sustained = *std::min_element(recent.begin(), recent.end());
-        if (sustained >= crop)
-            crop = sustained;
-        else if (desired < crop)
-        {
-            crop += (desired - crop) * 0.1;
-            if (crop - desired < 0.01) crop = desired;
-        }
+        recentIndex = (recentIndex + 1) % settleFrames;
+        // Camera transitions can briefly report very different edge widths. Only
+        // retarget once every recent frame agrees the crop should be wider (or
+        // narrower), then ease toward it so the change is not a sudden jump.
+        auto [lo, hi] = std::minmax_element(recent.begin(), recent.begin() + settleFrames);
+        if (*lo > target)
+            target = *lo;
+        else if (*hi < target)
+            target = *hi;
+        crop += (target - crop) * 0.2;
+        if (std::abs(target - crop) < 0.01) crop = target;
         return static_cast<int>(std::ceil(crop));
     }
 
 private:
-    static constexpr int GrowthFrames = 4;
+    int settleFrames = DefaultSettleFrames;
     double crop = 0.0;
-    std::array<double, GrowthFrames> recent {};
+    double target = 0.0;
+    std::array<double, MaxSettleFrames> recent {};
     size_t recentIndex = 0;
 };
 

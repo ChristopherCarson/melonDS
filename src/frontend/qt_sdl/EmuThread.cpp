@@ -898,6 +898,7 @@ void EmuThread::updateRenderer()
         .StereoAdaptiveTarget = cfg.GetInt("3D.GL.StereoAdaptiveTarget"),
         .StereoKeepFlatInFront = cfg.GetBool("3D.GL.StereoKeep2DInFront"),
         .StereoAutoCrop = cfg.GetBool("3D.GL.StereoAutoCrop"),
+        .StereoAutoCropSettleFrames = cfg.GetInt("3D.GL.StereoAutoCropSettleFrames"),
         .StereoEdgeCrop = cfg.GetInt("3D.GL.StereoEdgeCrop"),
         .StereoInset2D = cfg.GetBool("3D.GL.StereoInset2D")
     };

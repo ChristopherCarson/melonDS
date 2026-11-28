@@ -77,6 +77,7 @@ private slots:
     void on_sbStereoAdaptiveTarget_valueChanged(int value);
     void on_sbStereoEdgeCrop_valueChanged(int value);
     void on_cbStereoAutoCrop_stateChanged(int state);
+    void on_sbStereoAutoCropSettle_valueChanged(int value);
     void on_cbStereoInset2D_stateChanged(int state);
     void on_cbxComputeHiResCoords_stateChanged(int state);
     void on_cbxUpscaleFilter_currentIndexChanged(int index);
@@ -107,6 +108,7 @@ private:
     int oldStereoAdaptiveTarget;
     int oldStereoEdgeCrop;
     bool oldStereoAutoCrop;
+    int oldStereoAutoCropSettle;
     bool oldStereoInset2D;
     bool oldStereoKeep2DInFront;
     int oldHiresCoordinates;

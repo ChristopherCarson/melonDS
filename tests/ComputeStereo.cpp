@@ -71,10 +71,19 @@ int main()
     assert(adaptive.Convergence() == 0.0);
 
     StereoEdgeCrop crop;
+    // Long enough for a width to persist for half a second and finish easing in.
     auto sustain = [&](const Polygon* const* list, u32 count, double separation, double convergence)
     {
         int result = 0;
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 90; i++)
+            result = crop.Update(list, count, separation, convergence);
+        return result;
+    };
+    auto repeat = [&](int frames, const Polygon* const* list, u32 count, double separation,
+                      double convergence)
+    {
+        int result = 0;
+        for (int i = 0; i < frames; i++)
             result = crop.Update(list, count, separation, convergence);
         return result;
     };
@@ -85,26 +94,33 @@ int main()
     }
     assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
     sceneVertices[0].FinalPosition[0] = 0;
-    // A brief camera-transition spike does not enlarge the crop.
-    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
-    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
+    // A wider edge that lasts just under half a second does not enlarge the crop.
+    assert(repeat(29, polygons, 1, 10.0, 0.0) == 0);
     sceneVertices[0].FinalPosition[0] = 128;
     assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
     sceneVertices[0].FinalPosition[0] = 0;
-    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
-    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
-    assert(crop.Update(polygons, 1, 10.0, 0.0) == 0);
-    // A width that persists for four frames is applied.
-    assert(crop.Update(polygons, 1, 10.0, 0.0) == 16);
+    assert(repeat(29, polygons, 1, 10.0, 0.0) == 0);
+    // Once it persists for 30 frames, the crop eases toward it.
+    int easing = crop.Update(polygons, 1, 10.0, 0.0);
+    assert(easing > 0 && easing < 16);
+    assert(sustain(polygons, 1, 10.0, 0.0) == 16);
     // Both depth directions and both original edges use the same common crop.
     sceneVertices[0].FinalPosition[0] = 255;
     sceneVertices[0].Position[3] = 131072;
     assert(sustain(polygons, 1, 40.0, 0.0) == 31);
-    assert(crop.Update(polygons, 1, 40.0, -0.5) == 28);
-    assert(sustain(polygons, 1, 400.0, 0.0) == 64);
-    assert(crop.Update(nullptr, 0, 0.0, 0.0) == 58);
-    // Growth waits for the most recent frames to agree.
-    assert(crop.Update(polygons, 1, 400.0, 0.0) == 58);
+    // Narrowing also waits for half a second of agreement.
+    assert(repeat(29, polygons, 1, 40.0, -0.5) == 31);
+    assert(crop.Update(polygons, 1, 40.0, 0.0) == 31);
+    assert(repeat(29, polygons, 1, 40.0, -0.5) == 31);
+    assert(crop.Update(polygons, 1, 40.0, -0.5) < 31);
+    assert(sustain(polygons, 1, 40.0, -0.5) == 0);
+    // Widths that keep bouncing between values leave the crop unchanged.
+    assert(sustain(polygons, 1, 40.0, 0.0) == 31);
+    for (int i = 0; i < 100; i++)
+    {
+        assert(crop.Update(polygons, 1, 400.0, 0.0) == 31);
+        assert(crop.Update(nullptr, 0, 0.0, 0.0) == 31);
+    }
     assert(sustain(polygons, 1, 400.0, 0.0) == 64);
     crop.Reset();
     assert(sustain(polygons, 1, 40.0, -0.5) == 0);
@@ -125,9 +141,15 @@ int main()
         assert(crop.Update(polygons, 1, 400.0, 0.0, true) == 31);
         assert(crop.Update(nullptr, 0, 0.0, 0.0, true) == 31);
     }
-    // Live 3D still shrinks gradually and grows once wider edges persist.
-    assert(crop.Update(polygons, 1, 0.0, 0.0) == 28);
+    // Live 3D still adjusts once a new width persists.
+    assert(repeat(29, polygons, 1, 0.0, 0.0) == 31);
+    assert(crop.Update(polygons, 1, 0.0, 0.0) < 31);
     assert(sustain(polygons, 1, 400.0, 0.0) == 64);
+    // The settle time is configurable.
+    crop.SetSettleFrames(5);
+    assert(repeat(4, polygons, 1, 0.0, 0.0) == 64);
+    assert(crop.Update(polygons, 1, 0.0, 0.0) < 64);
+    crop.SetSettleFrames(StereoEdgeCrop::DefaultSettleFrames);
     crop.Reset();
     assert(crop.Update(nullptr, 0, 0.0, 0.0, true) == 0);
 

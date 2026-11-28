@@ -57,6 +57,7 @@ DefaultList<int> DefaultInts =
     {"3D.GL.ScaleFactor", 1},
     {"3D.GL.StereoSeparation", 16},
     {"3D.GL.StereoAdaptiveTarget", 24},
+    {"3D.GL.StereoAutoCropSettleFrames", 30},
 #ifdef JIT_ENABLED
     {"JIT.MaxBlockSize", 32},
 #endif
@@ -85,6 +86,7 @@ RangeList IntRanges =
     {"3D.GL.StereoSeparation", {1, 64}},
     {"3D.GL.StereoAdaptiveTarget", {1, 128}},
     {"3D.GL.StereoEdgeCrop", {0, 64}},
+    {"3D.GL.StereoAutoCropSettleFrames", {1, 600}},
     {"3D.GL.UpscaleFilter", {0, 2}}, // 0 = off, 1 = HQ4x, 2 = xBRZ
     {"Audio.Interpolation", {0, 4}},
     {"Instance*.Audio.Volume", {0, 256}},

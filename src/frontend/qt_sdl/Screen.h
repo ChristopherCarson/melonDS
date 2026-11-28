@@ -31,6 +31,7 @@
 #include <QScreen>
 #include <QCloseEvent>
 #include <QTimer>
+#include <QCursor>
 
 #include "glad/glad.h"
 #include "ScreenLayout.h"
@@ -111,12 +112,19 @@ protected:
     bool mouseHide;
     int mouseHideDelay;
 
-    // Software cursor drawn into both stereo eyes in place of the OS cursor.
+    // Game cursor: a native cursor for flat views, and a software cursor drawn into
+    // both eyes in stereo layouts.
+    bool gameCursorLoaded = false;
+    QCursor gameCursor;
+    int cursorWidth = 0, cursorHeight = 0;
+    int cursorHotX = 0, cursorHotY = 0;
+    std::vector<melonDS::u8> cursorPixels;
     bool softwareCursorSupported = false;
     bool stereoLayoutVisible = false;
     std::atomic<bool> softwareCursorVisible{false};
     std::atomic<int> softwareCursorX{0}, softwareCursorY{0};
     bool useSoftwareCursor();
+    void setGameCursor();
 
     struct OSDItem
     {
@@ -259,9 +267,6 @@ private:
     GLuint cursorShader;
     GLint cursorScreenSizeULoc, cursorRectULoc;
     GLuint cursorTexture = 0;
-    int cursorWidth = 0, cursorHeight = 0;
-    int cursorHotX = 0, cursorHotY = 0;
-    std::vector<melonDS::u8> cursorPixels;
 
     void drawSoftwareCursor(int w, int h, float factor);
 

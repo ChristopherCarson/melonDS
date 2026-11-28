@@ -346,6 +346,7 @@ void GLRenderer::SetRenderSettings(RendererSettings& settings)
         CurrentStereoCrop = 0;
         StereoCropBuffers[0] = StereoCropBuffers[1] = 0;
     }
+    AutoCrop.SetSettleFrames(settings.StereoAutoCropSettleFrames);
     StereoHoldFrames = StereoHoldDuration;
     SetScaleFactor(settings.ScaleFactor);
     if (stereoChanged && !scaleChanged)

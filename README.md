@@ -61,9 +61,12 @@ eye view, which can show the backdrop color or artifacts. Raise Stereo edge crop
 Video settings to black out that many native DS pixel columns on both the left and
 right edges of every eye view; use the smallest value that hides them. The default
 of 0 disables manual cropping. Optional Automatic stereo edge crop estimates the
-necessary width from 3D geometry at the screen edges. It grows once a wider crop is
-needed for several consecutive frames, ignoring brief camera-transition spikes, and
-shrinks gradually. The manual crop remains the minimum, and the automatic estimate is capped
+necessary width from 3D geometry at the screen edges. It changes only after every
+frame for the Auto crop settle frames setting (30 frames, about half a second, by
+default) calls for a wider, or narrower, crop, so camera transitions and widths that
+keep bouncing do not move the bars. Raise the setting for steadier bars, or lower it
+for faster reactions. Changes then
+ease in over a few frames. The manual crop remains the minimum, and the automatic estimate is capped
 at 64 native pixels per edge. It is not exact: geometry already clipped by the DS
 cannot always be detected, and the black bars also cover 2D content near the edges.
 
@@ -84,9 +87,9 @@ use View > Screen sizing to set one window to Top only and the other to Bottom o
 Both bottom views accept touch input.
 While a stereo layout is shown with the OpenGL display, melonDS replaces the system
 mouse pointer with a green cursor drawn at the same position in both eyes, so it
-appears at screen depth like the 2D UI. Outside the eye views it is drawn once. The
-normal pointer returns in non-stereo layouts and when no game is running; Hide mouse
-after inactivity applies to the stereo cursor too.
+appears at screen depth like the 2D UI. Outside the eye views it is drawn once. Over
+flat screens and the rest of the game view, the same green cursor is used as a normal
+pointer. Hide mouse after inactivity applies to both.
 For a display that expands half side-by-side 3D, enable Half SBS in Video settings;
 each eye is squeezed horizontally so the display can expand it to the correct shape.
 Enable Stereoscopic top screen to show the top screen as a side-by-side pair,
